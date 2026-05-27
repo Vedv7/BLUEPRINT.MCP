@@ -1,4 +1,6 @@
-# Publishing blueprint-mcp to npm
+# Publishing @vedv7/blueprint-mcp to npm
+
+The unscoped name `blueprint-mcp` is taken on npm (another project). This package publishes as **`@vedv7/blueprint-mcp`**.
 
 ## Pre-publish checklist
 
@@ -21,7 +23,7 @@ Verify `python/parse_ast.py` and `bin/blueprint.mjs` are included.
 
 ```bash
 npm login
-npm publish --access public
+npm publish
 ```
 
 ## After publish
@@ -29,11 +31,11 @@ npm publish --access public
 Consumers install with:
 
 ```bash
-npm install blueprint-mcp
+npm install @vedv7/blueprint-mcp
 npx blueprint doctor
 ```
 
-Point MCP config at `node_modules/blueprint-mcp/dist/cli/index.js mcp`.
+Point MCP config at `node_modules/@vedv7/blueprint-mcp/dist/cli/index.js mcp`.
 
 ## Repository
 

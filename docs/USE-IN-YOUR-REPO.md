@@ -5,8 +5,8 @@ Blueprint scans your codebase, indexes architectural memory, and can comment on 
 ## Install
 
 ```bash
-npm install blueprint-mcp
-# or link from a clone:
+npm install @vedv7/blueprint-mcp
+# or from GitHub until published:
 # npm install github:Vedv7/BLUEPRINT.MCP
 ```
 
@@ -29,7 +29,7 @@ Add to `.cursor/mcp.json` (or your MCP config):
   "mcpServers": {
     "blueprint": {
       "command": "node",
-      "args": ["node_modules/blueprint-mcp/dist/cli/index.js", "mcp"],
+      "args": ["node_modules/@vedv7/blueprint-mcp/dist/cli/index.js", "mcp"],
       "cwd": "."
     }
   }
