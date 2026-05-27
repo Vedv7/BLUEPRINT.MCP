@@ -6,6 +6,10 @@ Blueprint gives AI coding agents architectural memory.
 
 It helps Cursor and Claude Code reuse existing abstractions, avoid duplicate helpers, and follow repository structure with advisory-first guidance.
 
+## Use in your repo
+
+See **[docs/USE-IN-YOUR-REPO.md](docs/USE-IN-YOUR-REPO.md)** for install, MCP setup, monorepo config, and **PR comment bot** workflow.
+
 ## Quickstart
 
 From `blueprint-mcp/`:
