@@ -102,7 +102,7 @@ export async function startMcpServer(opts: { repoRoot: string }) {
   const config = loadConfig(repoRoot);
   const dbAbs = path.join(repoRoot, config.dbPath);
 
-  const server = new McpServer({ name: "blueprint", version: "0.1.0" });
+  const server = new McpServer({ name: "blueprint", version: "0.2.0" });
 
   server.tool(
     "scan_repo",

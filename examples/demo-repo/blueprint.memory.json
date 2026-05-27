@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "generatedAt": "2026-05-27T04:35:37.629Z",
+  "repoRoot": "C:\\Users\\vedas\\Desktop\\blueprint\\blueprint-mcp\\examples\\demo-repo",
+  "adapters": [
+    "typescript",
+    "python",
+    "java"
+  ],
+  "languages": [
+    {
+      "id": "typescript",
+      "files": 1,
+      "symbols": 1
+    }
+  ],
+  "modules": [
+    {
+      "id": "src/lib",
+      "fileCount": 1
+    }
+  ],
+  "topSymbols": [
+    {
+      "name": "formatCurrency",
+      "kind": "function",
+      "filePath": "src/lib/currency.ts",
+      "language": "typescript"
+    }
+  ],
+  "importEdgeCount": 0,
+  "dependencyFlows": [],
+  "crossLanguageEquivalents": [],
+  "domainHealth": {
+    "score": 100,
+    "risks": [
+      "no major domain risks detected"
+    ],
+    "domains": [
+      "shared"
+    ]
+  },
+  "architecturalDecisions": [
+    {
+      "id": "ADR-001",
+      "title": "Currency utilities",
+      "status": "accepted",
+      "decision": "---\r",
+      "domains": []
+    }
+  ]
+}

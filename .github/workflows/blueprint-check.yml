@@ -23,5 +23,12 @@ jobs:
       - name: Build Blueprint
         run: npm run build
 
-      - name: Blueprint Architecture Check
-        run: node dist/cli/index.js check --ci
+      - name: Blueprint architecture check (strict CI)
+        run: node dist/cli/index.js check --ci --strict
+        env:
+          BLUEPRINT_EMBED_MOCK: "1"
+
+      - name: Blueprint ADR governance (strict CI)
+        run: node dist/cli/index.js adr check --ci --strict
+        env:
+          BLUEPRINT_EMBED_MOCK: "1"

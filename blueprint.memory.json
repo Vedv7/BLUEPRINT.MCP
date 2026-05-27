@@ -1,0 +1,703 @@
+{
+  "version": 1,
+  "generatedAt": "2026-05-27T04:35:24.356Z",
+  "repoRoot": "C:\\Users\\vedas\\Desktop\\blueprint\\blueprint-mcp",
+  "adapters": [
+    "typescript",
+    "python",
+    "java"
+  ],
+  "languages": [
+    {
+      "id": "typescript",
+      "files": 76,
+      "symbols": 136
+    }
+  ],
+  "modules": [
+    {
+      "id": "src/adapters",
+      "fileCount": 23
+    },
+    {
+      "id": "src/check",
+      "fileCount": 1
+    },
+    {
+      "id": "src/cli",
+      "fileCount": 2
+    },
+    {
+      "id": "src/config",
+      "fileCount": 2
+    },
+    {
+      "id": "src/db",
+      "fileCount": 1
+    },
+    {
+      "id": "src/decisions",
+      "fileCount": 6
+    },
+    {
+      "id": "src/domain",
+      "fileCount": 1
+    },
+    {
+      "id": "src/embeddings",
+      "fileCount": 9
+    },
+    {
+      "id": "src/engine",
+      "fileCount": 4
+    },
+    {
+      "id": "src/engines",
+      "fileCount": 8
+    },
+    {
+      "id": "src/graph",
+      "fileCount": 1
+    },
+    {
+      "id": "src/indexer",
+      "fileCount": 2
+    },
+    {
+      "id": "src/ir",
+      "fileCount": 9
+    },
+    {
+      "id": "src/mcp",
+      "fileCount": 1
+    },
+    {
+      "id": "src/parser",
+      "fileCount": 2
+    },
+    {
+      "id": "src/report",
+      "fileCount": 1
+    },
+    {
+      "id": "src/rules",
+      "fileCount": 1
+    },
+    {
+      "id": "src/scanner",
+      "fileCount": 1
+    },
+    {
+      "id": "src/snapshot",
+      "fileCount": 1
+    }
+  ],
+  "topSymbols": [
+    {
+      "name": "getRegisteredAdapters",
+      "kind": "function",
+      "filePath": "src/adapters/registry.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "getEnabledAdapters",
+      "kind": "function",
+      "filePath": "src/adapters/registry.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "getAdapter",
+      "kind": "function",
+      "filePath": "src/adapters/registry.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "runBlueprintCheck",
+      "kind": "function",
+      "filePath": "src/check/runCheck.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "shouldFailCi",
+      "kind": "function",
+      "filePath": "src/cli/ciExit.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "applyStrictConfig",
+      "kind": "function",
+      "filePath": "src/cli/ciExit.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "typescriptExportedOnly",
+      "kind": "function",
+      "filePath": "src/config/languageOptions.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "pythonExportedOnly",
+      "kind": "function",
+      "filePath": "src/config/languageOptions.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "javaExportedOnly",
+      "kind": "function",
+      "filePath": "src/config/languageOptions.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "exportedOnlyForAdapter",
+      "kind": "function",
+      "filePath": "src/config/languageOptions.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "loadConfig",
+      "kind": "function",
+      "filePath": "src/config/loadConfig.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "openDb",
+      "kind": "function",
+      "filePath": "src/db/db.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "parseAdrMarkdown",
+      "kind": "function",
+      "filePath": "src/decisions/parseAdr.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "decisionsDirAbs",
+      "kind": "function",
+      "filePath": "src/decisions/paths.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "ensureDecisionsDir",
+      "kind": "function",
+      "filePath": "src/decisions/paths.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "nextAdrNumber",
+      "kind": "function",
+      "filePath": "src/decisions/paths.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "adrFileName",
+      "kind": "function",
+      "filePath": "src/decisions/paths.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "loadArchitecturalDecisions",
+      "kind": "function",
+      "filePath": "src/decisions/store.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "buildDecisionMemory",
+      "kind": "function",
+      "filePath": "src/decisions/store.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "createArchitecturalDecision",
+      "kind": "function",
+      "filePath": "src/decisions/store.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "formatDecisionList",
+      "kind": "function",
+      "filePath": "src/decisions/store.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "formatDecisionDetail",
+      "kind": "function",
+      "filePath": "src/decisions/store.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "renderAdrMarkdown",
+      "kind": "function",
+      "filePath": "src/decisions/template.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "buildDomainModel",
+      "kind": "function",
+      "filePath": "src/domain/buildDomainModel.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "buildSemanticDuplicateClusters",
+      "kind": "function",
+      "filePath": "src/embeddings/cluster.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "hashContent",
+      "kind": "function",
+      "filePath": "src/embeddings/hash.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "hashFileContent",
+      "kind": "function",
+      "filePath": "src/embeddings/hash.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "riskFromHybridScore",
+      "kind": "function",
+      "filePath": "src/embeddings/hybridScore.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "scoreParameterStructure",
+      "kind": "function",
+      "filePath": "src/embeddings/hybridScore.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "buildHybridScore",
+      "kind": "function",
+      "filePath": "src/embeddings/hybridScore.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "formatConfidenceExplanation",
+      "kind": "function",
+      "filePath": "src/embeddings/hybridScore.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "indexSymbolEmbeddings",
+      "kind": "function",
+      "filePath": "src/embeddings/indexSymbols.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "createMockEmbedder",
+      "kind": "function",
+      "filePath": "src/embeddings/model.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "createMiniLmEmbedder",
+      "kind": "function",
+      "filePath": "src/embeddings/model.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "createEmbedder",
+      "kind": "function",
+      "filePath": "src/embeddings/model.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "resetEmbedderCacheForTests",
+      "kind": "function",
+      "filePath": "src/embeddings/model.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "buildSymbolRepresentation",
+      "kind": "function",
+      "filePath": "src/embeddings/representSymbol.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "buildProposedRepresentation",
+      "kind": "function",
+      "filePath": "src/embeddings/representSymbol.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "contentHashForSymbol",
+      "kind": "function",
+      "filePath": "src/embeddings/representSymbol.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "findSemanticMatches",
+      "kind": "function",
+      "filePath": "src/embeddings/similarity.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "loadAllEmbeddings",
+      "kind": "function",
+      "filePath": "src/embeddings/store.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "upsertSymbolEmbedding",
+      "kind": "function",
+      "filePath": "src/embeddings/store.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "deleteEmbeddingsForFile",
+      "kind": "function",
+      "filePath": "src/embeddings/store.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "getExportedSymbolsWithIds",
+      "kind": "function",
+      "filePath": "src/embeddings/store.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "getFileEmbeddingHash",
+      "kind": "function",
+      "filePath": "src/embeddings/store.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "setFileEmbeddingHash",
+      "kind": "function",
+      "filePath": "src/embeddings/store.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "normalizeVector",
+      "kind": "function",
+      "filePath": "src/embeddings/vector.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "cosineSimilarity",
+      "kind": "function",
+      "filePath": "src/embeddings/vector.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "serializeVector",
+      "kind": "function",
+      "filePath": "src/embeddings/vector.ts",
+      "language": "typescript"
+    },
+    {
+      "name": "deserializeVector",
+      "kind": "function",
+      "filePath": "src/embeddings/vector.ts",
+      "language": "typescript"
+    }
+  ],
+  "importEdgeCount": 287,
+  "dependencyFlows": [
+    {
+      "from": "src/adapters",
+      "to": "src/config"
+    },
+    {
+      "from": "src/adapters",
+      "to": "src/ir"
+    },
+    {
+      "from": "src/adapters",
+      "to": "src/parser"
+    },
+    {
+      "from": "src/check",
+      "to": "src/config"
+    },
+    {
+      "from": "src/check",
+      "to": "src/engines"
+    },
+    {
+      "from": "src/check",
+      "to": "src/ir"
+    },
+    {
+      "from": "src/cli",
+      "to": "src/check"
+    },
+    {
+      "from": "src/cli",
+      "to": "src/config"
+    },
+    {
+      "from": "src/cli",
+      "to": "src/coverage"
+    },
+    {
+      "from": "src/cli",
+      "to": "src/db"
+    },
+    {
+      "from": "src/cli",
+      "to": "src/decisions"
+    },
+    {
+      "from": "src/cli",
+      "to": "src/domain"
+    },
+    {
+      "from": "src/cli",
+      "to": "src/engine"
+    },
+    {
+      "from": "src/cli",
+      "to": "src/engines"
+    },
+    {
+      "from": "src/cli",
+      "to": "src/graph"
+    },
+    {
+      "from": "src/cli",
+      "to": "src/indexer"
+    },
+    {
+      "from": "src/cli",
+      "to": "src/ir"
+    },
+    {
+      "from": "src/cli",
+      "to": "src/mcp"
+    },
+    {
+      "from": "src/cli",
+      "to": "src/parser"
+    },
+    {
+      "from": "src/cli",
+      "to": "src/report"
+    },
+    {
+      "from": "src/cli",
+      "to": "src/rules"
+    },
+    {
+      "from": "src/cli",
+      "to": "src/snapshot"
+    },
+    {
+      "from": "src/config",
+      "to": "src/ir"
+    },
+    {
+      "from": "src/domain",
+      "to": "src/config"
+    },
+    {
+      "from": "src/domain",
+      "to": "src/engines"
+    },
+    {
+      "from": "src/domain",
+      "to": "src/ir"
+    },
+    {
+      "from": "src/embeddings",
+      "to": "src/config"
+    },
+    {
+      "from": "src/embeddings",
+      "to": "src/db"
+    },
+    {
+      "from": "src/engine",
+      "to": "src/config"
+    },
+    {
+      "from": "src/engine",
+      "to": "src/db"
+    },
+    {
+      "from": "src/engine",
+      "to": "src/embeddings"
+    },
+    {
+      "from": "src/engines",
+      "to": "src/config"
+    },
+    {
+      "from": "src/engines",
+      "to": "src/decisions"
+    },
+    {
+      "from": "src/engines",
+      "to": "src/engine"
+    },
+    {
+      "from": "src/engines",
+      "to": "src/ir"
+    },
+    {
+      "from": "src/graph",
+      "to": "src/config"
+    },
+    {
+      "from": "src/graph",
+      "to": "src/db"
+    },
+    {
+      "from": "src/graph",
+      "to": "src/engines"
+    },
+    {
+      "from": "src/graph",
+      "to": "src/ir"
+    },
+    {
+      "from": "src/indexer",
+      "to": "src/config"
+    },
+    {
+      "from": "src/indexer",
+      "to": "src/db"
+    },
+    {
+      "from": "src/indexer",
+      "to": "src/embeddings"
+    },
+    {
+      "from": "src/indexer",
+      "to": "src/ir"
+    },
+    {
+      "from": "src/indexer",
+      "to": "src/parser"
+    },
+    {
+      "from": "src/ir",
+      "to": "src/adapters"
+    },
+    {
+      "from": "src/ir",
+      "to": "src/config"
+    },
+    {
+      "from": "src/ir",
+      "to": "src/db"
+    },
+    {
+      "from": "src/ir",
+      "to": "src/indexer"
+    },
+    {
+      "from": "src/ir",
+      "to": "src/parser"
+    },
+    {
+      "from": "src/mcp",
+      "to": "src/config"
+    },
+    {
+      "from": "src/mcp",
+      "to": "src/db"
+    },
+    {
+      "from": "src/mcp",
+      "to": "src/decisions"
+    },
+    {
+      "from": "src/mcp",
+      "to": "src/domain"
+    },
+    {
+      "from": "src/mcp",
+      "to": "src/embeddings"
+    },
+    {
+      "from": "src/mcp",
+      "to": "src/engine"
+    },
+    {
+      "from": "src/mcp",
+      "to": "src/engines"
+    },
+    {
+      "from": "src/mcp",
+      "to": "src/graph"
+    },
+    {
+      "from": "src/mcp",
+      "to": "src/ir"
+    },
+    {
+      "from": "src/report",
+      "to": "src/config"
+    },
+    {
+      "from": "src/report",
+      "to": "src/db"
+    },
+    {
+      "from": "src/report",
+      "to": "src/embeddings"
+    },
+    {
+      "from": "src/report",
+      "to": "src/engine"
+    },
+    {
+      "from": "src/report",
+      "to": "src/engines"
+    },
+    {
+      "from": "src/report",
+      "to": "src/ir"
+    },
+    {
+      "from": "src/rules",
+      "to": "src/config"
+    },
+    {
+      "from": "src/rules",
+      "to": "src/engines"
+    },
+    {
+      "from": "src/rules",
+      "to": "src/ir"
+    },
+    {
+      "from": "src/scanner",
+      "to": "src/adapters"
+    },
+    {
+      "from": "src/scanner",
+      "to": "src/config"
+    },
+    {
+      "from": "src/snapshot",
+      "to": "src/config"
+    },
+    {
+      "from": "src/snapshot",
+      "to": "src/decisions"
+    },
+    {
+      "from": "src/snapshot",
+      "to": "src/engines"
+    },
+    {
+      "from": "src/snapshot",
+      "to": "src/ir"
+    }
+  ],
+  "crossLanguageEquivalents": [],
+  "domainHealth": {
+    "score": 100,
+    "risks": [
+      "no major domain risks detected"
+    ],
+    "domains": [
+      "shared"
+    ]
+  },
+  "architecturalDecisions": []
+}

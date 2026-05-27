@@ -19,11 +19,31 @@ npm pack --dry-run
 
 Verify `python/parse_ast.py` and `bin/blueprint.mjs` are included.
 
-## Publish
+## Publish (manual first)
 
 ```bash
 npm login
-npm publish
+npm run test:all
+npm publish --access public
+```
+
+## Automated publish (after manual publish works once)
+
+Push a version tag — workflow `.github/workflows/npm-publish.yml` runs tests, build, and `npm publish`.
+
+Requires repository secret: `NPM_TOKEN`.
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+## CI governance gates
+
+```bash
+npx blueprint check --ci          # fail on violations only
+npx blueprint check --ci --strict # fail on violations + warnings
+npx blueprint adr check --ci --strict
 ```
 
 ## After publish

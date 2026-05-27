@@ -36,6 +36,7 @@ import {
 } from "../engines/decisionGovernance.js";
 import { formatAdrSuggestionsOutput, suggestAdrs } from "../engines/adrSuggest.js";
 import { buildArchitectureIr } from "../ir/buildArchitectureIr.js";
+import { applyStrictConfig, shouldFailCi } from "./ciExit.js";
 
 function repoRootFromCwd() {
   return process.cwd();
@@ -151,10 +152,11 @@ async function runSnapshot() {
   process.stdout.write(JSON.stringify({ path: result.path, adapters: result.snapshot.adapters }, null, 2) + "\n");
 }
 
-async function runCheck(opts: { ci?: boolean; format?: string }) {
+async function runCheck(opts: { ci?: boolean; strict?: boolean; format?: string }) {
   const repoRoot = repoRootFromCwd();
-  const { config, filesScanned, symbolsIndexed } = await scanAndIndex(repoRoot);
-  const result = await runBlueprintCheck({ repoRoot, config });
+  const { config: baseConfig, ir, filesScanned, symbolsIndexed } = await scanAndIndex(repoRoot);
+  const config = applyStrictConfig(baseConfig, opts.strict);
+  const result = await runBlueprintCheck({ repoRoot, config, ir });
   const outputFormat = opts.format === "markdown" ? "markdown" : "text";
   process.stdout.write(formatCheckOutput(result, { format: outputFormat }) + "\n");
 
@@ -165,15 +167,22 @@ async function runCheck(opts: { ci?: boolean; format?: string }) {
           filesScanned,
           symbolsIndexed,
           violations: result.violations.length,
-          warnings: result.warnings.length
+          warnings: result.warnings.length,
+          strict: Boolean(opts.strict)
         },
         null,
         2
       ) + "\n"
     );
+  } else {
+    process.stdout.write(
+      `CI: violations=${result.violations.length} warnings=${result.warnings.length} strict=${Boolean(opts.strict)}\n`
+    );
   }
 
-  if (result.violations.length > 0) process.exitCode = 1;
+  if (shouldFailCi({ violations: result.violations.length, warnings: result.warnings.length }, opts)) {
+    process.exitCode = 1;
+  }
 }
 
 async function runInferRules() {
@@ -271,7 +280,7 @@ async function runAdrNew(opts: {
   process.stdout.write(formatDecisionDetail(decision) + "\n");
 }
 
-async function runAdrCheck(opts?: { format?: string }) {
+async function runAdrCheck(opts?: { ci?: boolean; strict?: boolean; format?: string }) {
   const repoRoot = repoRootFromCwd();
   const config = loadConfig(repoRoot);
   const ir = await buildArchitectureIr(repoRoot, config);
@@ -280,7 +289,16 @@ async function runAdrCheck(opts?: { format?: string }) {
   const output =
     opts?.format === "markdown" ? formatDecisionCheckMarkdown(result) : formatDecisionCheckOutput(result);
   process.stdout.write(output + "\n");
-  if (result.violations.length > 0) process.exitCode = 1;
+
+  if (opts?.ci) {
+    process.stdout.write(
+      `CI: violations=${result.violations.length} warnings=${result.warnings.length} strict=${Boolean(opts?.strict)}\n`
+    );
+  }
+
+  if (shouldFailCi({ violations: result.violations.length, warnings: result.warnings.length }, opts ?? {})) {
+    process.exitCode = 1;
+  }
 }
 
 async function runAdrSuggest() {
@@ -348,7 +366,7 @@ async function runVerify(symbolName: string, proposedFilePath: string, intent: s
 }
 
 const program = new Command();
-program.name("blueprint").description("Blueprint MCP: architectural guardrails for AI coding agents").version("0.1.0");
+program.name("blueprint").description("Blueprint MCP: architectural guardrails for AI coding agents").version("0.2.0");
 
 program.command("init").description("Create blueprint.config.json").action(runInit);
 program.command("scan").description("Scan repo and index exported symbols").action(() => runScan());
@@ -362,9 +380,10 @@ program.command("report").description("Generate repository architecture memory r
 program
   .command("check")
   .description("Check architecture policy violations and warnings")
-  .option("--ci", "CI mode: clean output, non-zero exit on violations")
+  .option("--ci", "CI mode: exit non-zero on violations (warnings only with --strict)")
+  .option("--strict", "CI strict gate: fail on warnings too; use strictness for checks")
   .option("--format <format>", "Output format: text or markdown", "text")
-  .action((opts: { ci?: boolean; format?: string }) => runCheck(opts));
+  .action((opts: { ci?: boolean; strict?: boolean; format?: string }) => runCheck(opts));
 program
   .command("infer-rules")
   .description("Infer suggested architecture policies from repo structure")
@@ -419,8 +438,10 @@ adr
 adr
   .command("check")
   .description("Check repo against recorded decision constraints")
+  .option("--ci", "CI mode: exit non-zero on ADR violations (warnings only with --strict)")
+  .option("--strict", "CI strict gate: fail on ADR warnings; only accepted ADRs enforce")
   .option("--format <format>", "text or markdown", "text")
-  .action((opts: { format?: string }) => runAdrCheck(opts));
+  .action((opts: { ci?: boolean; strict?: boolean; format?: string }) => runAdrCheck(opts));
 
 adr
   .command("suggest")
