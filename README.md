@@ -203,3 +203,5 @@ Blueprint defaults to `"enforcementMode": "advisory"` in `blueprint.config.json`
 In advisory mode, high-confidence issues return guidance instead of hard blocking.
 Set `"enforcementMode": "enforce"` only when teams are ready for strict blocking on high-severity issues.
 
+
+<!-- Blueprint PR bot validation -->
