@@ -16,6 +16,8 @@ export type EmbeddingsConfig = {
 export type LanguageAdapterConfig = {
   enabled?: boolean;
   include?: string[];
+  /** Index top-level helpers that are not exported (default: false). */
+  indexNonExported?: boolean;
 };
 
 export type BlueprintConfig = {
@@ -72,7 +74,7 @@ const DEFAULT_EMBEDDINGS: EmbeddingsConfig = {
 
 const DEFAULT_CONFIG: BlueprintConfig = {
   root: ".",
-  include: ["src/**/*.ts", "src/**/*.tsx", "app/**/*.ts", "app/**/*.tsx"],
+  include: [],
   dbPath: ".blueprint/blueprint.sqlite",
   enforcementMode: "advisory",
   framework: "unknown",

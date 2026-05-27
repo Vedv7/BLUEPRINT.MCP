@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { BlueprintConfig } from "../config/loadConfig.js";
+import type { ModuleNode } from "../ir/types.js";
 import { buildSemanticDuplicateClusters } from "../embeddings/cluster.js";
 import { openDb } from "../db/db.js";
 import { diceCoefficient } from "../engine/stringSim.js";
@@ -168,11 +169,24 @@ function buildRecommendations(rows: SymbolRow[], clusters: Array<{ label: string
   return recommendations;
 }
 
+function formatMonorepoSection(modules: ModuleNode[]) {
+  const mono = modules.filter(
+    (m) => m.id.startsWith("apps/") || m.id.startsWith("packages/") || m.id.startsWith("services/")
+  );
+  if (!mono.length) return [];
+  return [
+    "",
+    "Monorepo packages:",
+    ...mono.map((m) => `- ${m.id}: ${m.fileCount} files`)
+  ];
+}
+
 export async function generateBlueprintReport(opts: {
   repoRoot: string;
   config: BlueprintConfig;
   filesScanned: number;
   symbolsIndexed: number;
+  modules?: ModuleNode[];
 }) {
   const dbAbs = path.join(opts.repoRoot, opts.config.dbPath);
   const db = await openDb(dbAbs);
@@ -195,6 +209,7 @@ export async function generateBlueprintReport(opts: {
     `Symbols indexed: ${opts.symbolsIndexed}`,
     `Path aliases: ${opts.config.pathAliases.map((a) => normalizeAlias(a.aliasPrefix)).join(", ") || "None"}`,
     `Placement rules: ${activeRules} active`,
+    ...formatMonorepoSection(opts.modules ?? []),
     "",
     "Top reusable abstractions:",
     ...(topReusable.length

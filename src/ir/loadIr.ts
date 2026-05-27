@@ -9,7 +9,8 @@ export async function loadArchitectureIrFromDb(db: BlueprintDb, repoRoot: string
   const fileNodes: FileNode[] = fileRows.map((f) => ({
     path: f.path,
     absolutePath: `${repoRoot}/${f.path}`.replaceAll("\\", "/"),
-    language: (f.area === "python" || f.area === "java" ? f.area : "typescript") as FileNode["language"]
+    language: "typescript",
+    dialect: f.area === "javascript" ? "javascript" : "typescript"
   }));
 
   const symbolRows = await db.all<

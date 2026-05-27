@@ -20,6 +20,18 @@ export function classifyModulePath(filePath: string, config?: BlueprintConfig): 
   if (p.startsWith("src/app/api/")) return "src/app/api";
   if (p.startsWith("src/app/")) return "src/app";
   if (p.startsWith("src/hooks/")) return "src/hooks";
+  if (p.startsWith("apps/")) {
+    const parts = p.split("/");
+    return parts.length >= 2 ? `apps/${parts[1]}` : "apps";
+  }
+  if (p.startsWith("packages/")) {
+    const parts = p.split("/");
+    return parts.length >= 2 ? `packages/${parts[1]}` : "packages";
+  }
+  if (p.startsWith("services/")) {
+    const parts = p.split("/");
+    return parts.length >= 2 ? `services/${parts[1]}` : "services";
+  }
   if (p.startsWith("backend/")) return "backend";
   if (p.startsWith("frontend/")) return "frontend";
   if (p.startsWith("ml-service/")) return "ml-service";

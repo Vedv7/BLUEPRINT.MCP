@@ -48,7 +48,7 @@ export async function persistArchitectureIr(db: BlueprintDb, ir: ArchitectureIR,
      ON CONFLICT(path) DO UPDATE SET area = excluded.area, updated_at = excluded.updated_at`
   );
   for (const file of ir.files) {
-    await fileStmt.run(file.path, file.language, nowMs);
+    await fileStmt.run(file.path, file.dialect, nowMs);
   }
   await fileStmt.finalize();
 }

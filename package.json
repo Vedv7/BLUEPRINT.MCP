@@ -15,7 +15,10 @@
     "scan": "node --enable-source-maps dist/cli/index.js scan",
     "report": "node --enable-source-maps dist/cli/index.js report",
     "blueprint:check": "node --enable-source-maps dist/cli/index.js check",
-    "demo:magic": "cmd /c \"cd examples\\demo-repo && node ..\\..\\dist\\cli\\index.js scan && node ..\\..\\dist\\cli\\index.js verify formatMoney src/utils/paymentFormatter.ts utility_payment_formatter\""
+    "demo:magic": "cmd /c \"cd examples\\demo-repo && node ..\\..\\dist\\cli\\index.js scan && node ..\\..\\dist\\cli\\index.js verify formatMoney src/utils/paymentFormatter.ts utility_payment_formatter\"",
+    "test": "vitest run",
+    "test:all": "npm run typecheck && npm run build && npm test && npm run demo:magic",
+    "validate:phase1": "npm run build && node scripts/phase1-validation.mjs"
   },
   "dependencies": {
     "@xenova/transformers": "^2.17.2",
@@ -30,6 +33,7 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "tsup": "^8.3.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^2.1.9"
   }
 }

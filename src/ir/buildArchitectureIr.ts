@@ -1,4 +1,5 @@
 import type { BlueprintConfig } from "../config/loadConfig.js";
+import { typescriptExportedOnly } from "../config/typescriptOptions.js";
 import { getEnabledAdapters } from "../adapters/registry.js";
 import { boundaryRulesFromConfig } from "./boundaries.js";
 import { buildModuleNodes } from "./modules.js";
@@ -14,6 +15,7 @@ export async function buildArchitectureIr(
   opts?: BuildIrOptions
 ): Promise<ArchitectureIR> {
   const adapters = getEnabledAdapters(config);
+  const exportedOnly = opts?.exportedOnly ?? typescriptExportedOnly(config);
   const files: FileNode[] = [];
   const symbols: SymbolNode[] = [];
   const imports: ImportEdge[] = [];
@@ -21,7 +23,7 @@ export async function buildArchitectureIr(
   for (const adapter of adapters) {
     const discovered = await adapter.discoverFiles(repoRoot, config);
     files.push(...discovered);
-    symbols.push(...(await adapter.extractSymbols(repoRoot, discovered, { exportedOnly: opts?.exportedOnly ?? true })));
+    symbols.push(...(await adapter.extractSymbols(repoRoot, discovered, { exportedOnly })));
     imports.push(...(await adapter.extractImports(repoRoot, discovered, config)));
   }
 

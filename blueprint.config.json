@@ -1,7 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "root": ".",
-  "include": ["src/**/*.ts", "src/**/*.tsx", "app/**/*.ts", "app/**/*.tsx"],
+  "include": [],
+  "languages": {
+    "typescript": {
+      "enabled": true,
+      "indexNonExported": false
+    }
+  },
   "dbPath": ".blueprint/blueprint.sqlite",
   "enforcementMode": "advisory",
   "embeddings": {

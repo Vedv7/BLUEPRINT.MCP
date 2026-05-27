@@ -14,6 +14,7 @@ import { formatCheckOutput, runBlueprintCheck } from "../check/runCheck.js";
 import { formatInferredPoliciesOutput, inferPoliciesFromRepo } from "../rules/inferRules.js";
 import { buildArchitectureGraph, formatArchitectureGraphOutput } from "../graph/buildArchitectureGraph.js";
 import { scanAndIndexRepo } from "../indexer/scanAndIndex.js";
+import { analyzeRepoCoverage, formatDoctorReport } from "../coverage/repoCoverage.js";
 
 function repoRootFromCwd() {
   return process.cwd();
@@ -67,13 +68,31 @@ async function runDoctor() {
   const config = loadConfig(repoRoot);
   const dbAbs = path.join(repoRoot, config.dbPath);
   const configPath = path.join(repoRoot, "blueprint.config.json");
-  const status = {
-    repoRoot,
+  const coverage = await analyzeRepoCoverage(repoRoot, config);
+  const text = formatDoctorReport(coverage, {
     configPresent: fs.existsSync(configPath),
     dbPresent: fs.existsSync(dbAbs),
     framework: config.framework
-  };
-  process.stdout.write(JSON.stringify(status, null, 2) + "\n");
+  });
+  process.stdout.write(text + "\n");
+  process.stdout.write(
+    JSON.stringify(
+      {
+        repoRoot,
+        configPresent: fs.existsSync(configPath),
+        dbPresent: fs.existsSync(dbAbs),
+        framework: config.framework,
+        coverage: {
+          parsedJsTsFiles: coverage.parsedJsTsFiles,
+          eligibleJsTsFiles: coverage.eligibleJsTsFiles,
+          coverageRatio: coverage.coverageRatio,
+          languages: coverage.languages
+        }
+      },
+      null,
+      2
+    ) + "\n"
+  );
 }
 
 async function runMcp() {
@@ -83,8 +102,14 @@ async function runMcp() {
 
 async function runReport() {
   const repoRoot = repoRootFromCwd();
-  const { config, filesScanned, symbolsIndexed } = await scanAndIndex(repoRoot);
-  const report = await generateBlueprintReport({ repoRoot, config, filesScanned, symbolsIndexed });
+  const { config, filesScanned, symbolsIndexed, ir } = await scanAndIndex(repoRoot);
+  const report = await generateBlueprintReport({
+    repoRoot,
+    config,
+    filesScanned,
+    symbolsIndexed,
+    modules: ir.modules
+  });
   process.stdout.write(report.text + "\n");
 }
 
@@ -199,7 +224,7 @@ program.name("blueprint").description("Blueprint MCP: architectural guardrails f
 
 program.command("init").description("Create blueprint.config.json").action(runInit);
 program.command("scan").description("Scan repo and index exported symbols").action(() => runScan());
-program.command("doctor").description("Check config/db presence").action(() => runDoctor());
+program.command("doctor").description("Language coverage, monorepo breakdown, config/db status").action(() => runDoctor());
 program.command("mcp").description("Start Blueprint MCP server (stdio)").action(() => runMcp());
 program.command("report").description("Generate repository architecture memory report").action(() => runReport());
 program

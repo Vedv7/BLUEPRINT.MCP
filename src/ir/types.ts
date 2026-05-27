@@ -1,9 +1,13 @@
 export type LanguageId = "typescript" | "python" | "java" | "go" | "rust" | "csharp";
 
+export type ScriptDialect = "typescript" | "javascript";
+
 export type FileNode = {
   path: string;
   absolutePath: string;
+  /** Adapter that parsed this file (JS/TS share the typescript adapter). */
   language: LanguageId;
+  dialect: ScriptDialect;
 };
 
 export type SymbolKind =
