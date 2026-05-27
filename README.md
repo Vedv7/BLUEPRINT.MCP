@@ -40,6 +40,21 @@ The rule ensures the agent calls:
 
 before creating new helpers, utilities, services, components, routes, or abstractions.
 
+## Architectural decision memory (ADR)
+
+Blueprint preserves **why** architecture choices were made — not just what files exist.
+
+```bash
+npx blueprint adr new -t "Auth pattern" -d "Use JWT sessions." -r "Stateless scaling" \
+  -c "Auth logic must remain under src/lib/auth/**" --avoid "Direct DB access from middleware"
+npx blueprint adr list
+npx blueprint adr show ADR-001
+npx blueprint adr check
+npx blueprint decide -t "..." -d "..."   # alias for adr new
+```
+
+Decisions live in `.blueprint/decisions/` and are included in `blueprint.memory.json`, MCP advisories, and governance checks.
+
 ## Domain intelligence
 
 Blueprint infers **business domains** (payments, auth, analytics, …) from paths, builds **ownership stacks** (controller → service → repository), detects **cross-domain violations** and **architectural drift**, and scores repository health.

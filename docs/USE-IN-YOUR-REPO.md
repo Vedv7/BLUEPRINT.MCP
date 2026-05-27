@@ -52,6 +52,25 @@ Copy `docs/agent-rule-blueprint.mdc` → `.cursor/rules/blueprint.mdc`.
 | `npx blueprint domains` | Infer business domains and ownership stacks |
 | `npx blueprint domain-health` | Architecture health score (0–100) |
 | `npx blueprint domain-check` | Domain violations + drift (CI exit code) |
+| `npx blueprint adr list` | List architectural decisions (ADRs) |
+| `npx blueprint adr new` / `decide` | Record a decision with rationale + constraints |
+| `npx blueprint adr check` | Verify repo against recorded decisions |
+
+## Architectural decision memory
+
+Record decisions so AI sessions months apart stay coherent:
+
+```bash
+npx blueprint adr new -t "Auth pattern" -d "Use JWT session architecture." \
+  -r "Stateless scaling" -c "Auth logic must remain under src/lib/auth/**" \
+  --avoid "Direct DB access from middleware" --domain auth
+npx blueprint adr list
+npx blueprint adr check
+```
+
+Files: `.blueprint/decisions/ADR-001-slug.md`
+
+MCP: `list_architectural_decisions`, `check_decision_constraints`, `record_architectural_decision`
 
 ## Domain intelligence
 

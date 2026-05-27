@@ -18,6 +18,17 @@ import {
   formatDomainArchitectureOutput,
   formatDomainHealthMarkdown
 } from "../engines/domainIntelligence.js";
+import {
+  buildDecisionMemory,
+  createArchitecturalDecision,
+  formatDecisionDetail,
+  formatDecisionList
+} from "../decisions/store.js";
+import {
+  checkDecisionsAgainstRepo,
+  decisionContinuityAdvisory,
+  formatDecisionCheckOutput
+} from "../engines/decisionGovernance.js";
 import { findDuplicateCandidates, findDuplicateForProposedSymbol } from "../engine/duplicateDetector.js";
 import { suggestImportForSymbol } from "../engine/importSuggester.js";
 import { verifyPlacement } from "../engine/placementEngine.js";
@@ -169,7 +180,15 @@ export async function startMcpServer(opts: { repoRoot: string }) {
         domain: domainAdvisory
       };
       const best = candidates[0];
+      const decisionMemory = buildDecisionMemory(repoRoot);
+      const decisionText = decisionContinuityAdvisory(decisionMemory, {
+        filePath: proposedFilePath,
+        intent,
+        domain: domainAdvisory?.domain
+      });
+
       const blocks = [
+        decisionText,
         domainAdvisory ? domainAdvisoryText(domainAdvisory) : null,
         advisoryTextForAbstraction({
           file: best?.file,
@@ -322,6 +341,12 @@ export async function startMcpServer(opts: { repoRoot: string }) {
       intent: z.string().describe("Short natural-language intent, e.g. 'utility to format payment amounts'")
     },
     async ({ proposedFilePath, proposedSymbolName, intent }) => {
+      const decisionMemory = buildDecisionMemory(repoRoot);
+      const decisionText = decisionContinuityAdvisory(decisionMemory, {
+        filePath: proposedFilePath,
+        intent
+      });
+
       const ir = await buildArchitectureIr(repoRoot, config);
       const domainModel = buildDomainArchitecture(ir, config);
       const domainAdvisory = buildDomainAdvisory({
@@ -378,6 +403,7 @@ export async function startMcpServer(opts: { repoRoot: string }) {
           {
             type: "text",
             text: [
+              decisionText,
               domainAdvisoryText(domainAdvisory),
               advisoryTextForAbstraction({
                 file: response.duplicate.match?.file,
@@ -397,6 +423,61 @@ export async function startMcpServer(opts: { repoRoot: string }) {
           }
         ],
         structuredContent: response
+      };
+    }
+  );
+
+  server.tool(
+    "list_architectural_decisions",
+    "List persistent architectural decisions (ADRs) and rationale for continuity across AI sessions.",
+    {},
+    async () => {
+      const memory = buildDecisionMemory(repoRoot);
+      return {
+        content: [{ type: "text", text: formatDecisionList(memory.decisions) }],
+        structuredContent: { decisions: memory.decisions }
+      };
+    }
+  );
+
+  server.tool(
+    "check_decision_constraints",
+    "Check whether the codebase violates recorded architectural decisions.",
+    {},
+    async () => {
+      const ir = await buildArchitectureIr(repoRoot, config);
+      const memory = buildDecisionMemory(repoRoot);
+      const result = checkDecisionsAgainstRepo(ir, config, memory);
+      return {
+        content: [{ type: "text", text: formatDecisionCheckOutput(result) }],
+        structuredContent: result
+      };
+    }
+  );
+
+  server.tool(
+    "record_architectural_decision",
+    "Record an ADR under .blueprint/decisions/ for long-term architectural continuity.",
+    {
+      title: z.string(),
+      decision: z.string(),
+      rationale: z.string().optional(),
+      constraints: z.array(z.string()).optional(),
+      avoid: z.array(z.string()).optional(),
+      domains: z.array(z.string()).optional()
+    },
+    async ({ title, decision, rationale, constraints, avoid, domains }) => {
+      const { path: adrPath, decision: recorded } = createArchitecturalDecision(repoRoot, {
+        title,
+        decision,
+        rationale,
+        constraints,
+        avoid,
+        domains
+      });
+      return {
+        content: [{ type: "text", text: `Recorded ${adrPath}\n\n${formatDecisionDetail(recorded)}` }],
+        structuredContent: recorded
       };
     }
   );

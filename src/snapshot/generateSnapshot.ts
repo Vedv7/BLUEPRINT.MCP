@@ -3,6 +3,7 @@ import path from "node:path";
 import type { BlueprintConfig } from "../config/loadConfig.js";
 import { buildArchitectureGraphFromIr } from "../engines/architectureGraph.js";
 import { buildDomainArchitecture } from "../engines/domainIntelligence.js";
+import { buildDecisionMemory } from "../decisions/store.js";
 import { findCrossLanguageEquivalents } from "../engines/crossLanguage.js";
 import type { ArchitectureIR } from "../ir/types.js";
 import { classifyModulePath } from "../ir/modules.js";
@@ -19,14 +20,23 @@ export type BlueprintMemorySnapshot = {
   dependencyFlows: Array<{ from: string; to: string }>;
   crossLanguageEquivalents: ReturnType<typeof findCrossLanguageEquivalents>;
   domainHealth: { score: number; risks: string[]; domains: string[] };
+  architecturalDecisions: Array<{
+    id: string;
+    title: string;
+    status: string;
+    decision: string;
+    domains: string[];
+  }>;
 };
 
 export function buildBlueprintMemorySnapshot(
   ir: ArchitectureIR,
-  config: BlueprintConfig
+  config: BlueprintConfig,
+  repoRoot?: string
 ): BlueprintMemorySnapshot {
   const graph = buildArchitectureGraphFromIr(ir, config);
   const domain = buildDomainArchitecture(ir, config);
+  const decisionMemory = repoRoot ? buildDecisionMemory(repoRoot) : null;
   const langStats = new Map<string, { files: number; symbols: number }>();
 
   for (const file of ir.files) {
@@ -65,7 +75,14 @@ export function buildBlueprintMemorySnapshot(
       score: domain.health.score,
       risks: domain.health.risks,
       domains: domain.domains.map((d) => d.id)
-    }
+    },
+    architecturalDecisions: (decisionMemory?.decisions ?? []).map((d) => ({
+      id: d.id,
+      title: d.title,
+      status: d.status,
+      decision: d.decision.split("\n")[0] ?? d.decision,
+      domains: d.domains
+    }))
   };
 }
 
@@ -75,7 +92,7 @@ export async function writeBlueprintMemorySnapshot(
   config: BlueprintConfig,
   outPath = "blueprint.memory.json"
 ) {
-  const snapshot = buildBlueprintMemorySnapshot(ir, config);
+  const snapshot = buildBlueprintMemorySnapshot(ir, config, repoRoot);
   const abs = path.join(repoRoot, outPath);
   fs.writeFileSync(abs, JSON.stringify(snapshot, null, 2));
   return { path: abs, snapshot };

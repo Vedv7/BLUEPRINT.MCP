@@ -21,6 +21,19 @@ import {
   formatDomainArchitectureOutput,
   formatDomainHealthMarkdown
 } from "../engines/domainIntelligence.js";
+import {
+  buildDecisionMemory,
+  createArchitecturalDecision,
+  formatDecisionDetail,
+  formatDecisionList,
+  loadArchitecturalDecisions
+} from "../decisions/store.js";
+import { ensureDecisionsDir } from "../decisions/paths.js";
+import {
+  checkDecisionsAgainstRepo,
+  formatDecisionCheckOutput
+} from "../engines/decisionGovernance.js";
+import { buildArchitectureIr } from "../ir/buildArchitectureIr.js";
 
 function repoRootFromCwd() {
   return process.cwd();
@@ -66,7 +79,9 @@ function runInit() {
     ? fs.readFileSync(templatePath, "utf8")
     : JSON.stringify(loadConfig(repoRoot), null, 2);
   fs.writeFileSync(configPath, template);
+  ensureDecisionsDir(repoRoot);
   process.stdout.write("Wrote blueprint.config.json\n");
+  process.stdout.write("Created .blueprint/decisions/ for architectural decision memory\n");
 }
 
 async function runDoctor(opts?: { json?: boolean }) {
@@ -210,6 +225,60 @@ async function runDomainCheck() {
   if (model.violations.length > 0) process.exitCode = 1;
 }
 
+async function runAdrList() {
+  const repoRoot = repoRootFromCwd();
+  const decisions = loadArchitecturalDecisions(repoRoot);
+  process.stdout.write(formatDecisionList(decisions) + "\n");
+}
+
+async function runAdrShow(id: string) {
+  const repoRoot = repoRootFromCwd();
+  const memory = buildDecisionMemory(repoRoot);
+  const key = id.toUpperCase().startsWith("ADR-") ? id.toUpperCase() : `ADR-${id.padStart(3, "0")}`;
+  const d = memory.byId.get(key);
+  if (!d) {
+    process.stderr.write(`Decision not found: ${key}\n`);
+    process.exitCode = 1;
+    return;
+  }
+  process.stdout.write(formatDecisionDetail(d) + "\n");
+}
+
+async function runAdrNew(opts: {
+  title: string;
+  decision: string;
+  rationale?: string;
+  constraint?: string[];
+  avoid?: string[];
+  chosen?: string[];
+  rejected?: string[];
+  domain?: string[];
+}) {
+  const repoRoot = repoRootFromCwd();
+  const { path, decision } = createArchitecturalDecision(repoRoot, {
+    title: opts.title,
+    decision: opts.decision,
+    rationale: opts.rationale,
+    constraints: opts.constraint,
+    avoid: opts.avoid,
+    chosenPatterns: opts.chosen,
+    rejectedPatterns: opts.rejected,
+    domains: opts.domain
+  });
+  process.stdout.write(`Wrote ${path}\n`);
+  process.stdout.write(formatDecisionDetail(decision) + "\n");
+}
+
+async function runAdrCheck() {
+  const repoRoot = repoRootFromCwd();
+  const config = loadConfig(repoRoot);
+  const ir = await buildArchitectureIr(repoRoot, config);
+  const memory = buildDecisionMemory(repoRoot);
+  const result = checkDecisionsAgainstRepo(ir, config, memory);
+  process.stdout.write(formatDecisionCheckOutput(result) + "\n");
+  if (result.violations.length > 0) process.exitCode = 1;
+}
+
 async function runFindDuplicates(symbolName: string, limit = 5, proposedFilePath?: string, intent?: string) {
   const repoRoot = repoRootFromCwd();
   const config = loadConfig(repoRoot);
@@ -301,6 +370,62 @@ program
   .command("domain-check")
   .description("Domain boundary violations and architectural drift (CI-friendly exit code)")
   .action(() => runDomainCheck());
+
+const adr = program.command("adr").description("Architectural decision memory (.blueprint/decisions/)");
+
+adr.command("list").description("List recorded ADRs").action(() => runAdrList());
+
+adr
+  .command("show")
+  .description("Show one ADR by id (e.g. ADR-001)")
+  .argument("<id>", "ADR id")
+  .action((id: string) => runAdrShow(id));
+
+adr
+  .command("new")
+  .description("Record a new architectural decision")
+  .requiredOption("-t, --title <title>", "Short title")
+  .requiredOption("-d, --decision <text>", "Decision statement")
+  .option("-r, --rationale <text>", "Why this decision")
+  .option("-c, --constraint <text>", "Constraint (repeatable)", (v: string, acc: string[]) => [...acc, v], [] as string[])
+  .option("--avoid <text>", "Pattern to avoid (repeatable)", (v: string, acc: string[]) => [...acc, v], [] as string[])
+  .option("--chosen <text>", "Chosen pattern (repeatable)", (v: string, acc: string[]) => [...acc, v], [] as string[])
+  .option("--rejected <text>", "Rejected pattern (repeatable)", (v: string, acc: string[]) => [...acc, v], [] as string[])
+  .option("--domain <name>", "Domain tag (repeatable)", (v: string, acc: string[]) => [...acc, v], [] as string[])
+  .action((opts: {
+    title: string;
+    decision: string;
+    rationale?: string;
+    constraint: string[];
+    avoid: string[];
+    chosen: string[];
+    rejected: string[];
+    domain: string[];
+  }) => runAdrNew(opts));
+
+adr
+  .command("check")
+  .description("Check repo against recorded decision constraints")
+  .action(() => runAdrCheck());
+
+program
+  .command("decide")
+  .description("Alias: record a decision (blueprint adr new)")
+  .requiredOption("-t, --title <title>", "Short title")
+  .requiredOption("-d, --decision <text>", "Decision statement")
+  .option("-r, --rationale <text>", "Why this decision")
+  .option("-c, --constraint <text>", "Constraint (repeatable)", (v: string, acc: string[]) => [...acc, v], [] as string[])
+  .option("--avoid <text>", "Pattern to avoid (repeatable)", (v: string, acc: string[]) => [...acc, v], [] as string[])
+  .option("--domain <name>", "Domain tag (repeatable)", (v: string, acc: string[]) => [...acc, v], [] as string[])
+  .action((opts: {
+    title: string;
+    decision: string;
+    rationale?: string;
+    constraint: string[];
+    avoid: string[];
+    domain: string[];
+  }) => runAdrNew(opts));
+
 program
   .command("snapshot")
   .description("Write blueprint.memory.json architecture snapshot for agents")
