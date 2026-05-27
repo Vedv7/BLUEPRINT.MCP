@@ -31,8 +31,10 @@ import {
 import { ensureDecisionsDir } from "../decisions/paths.js";
 import {
   checkDecisionsAgainstRepo,
+  formatDecisionCheckMarkdown,
   formatDecisionCheckOutput
 } from "../engines/decisionGovernance.js";
+import { formatAdrSuggestionsOutput, suggestAdrs } from "../engines/adrSuggest.js";
 import { buildArchitectureIr } from "../ir/buildArchitectureIr.js";
 
 function repoRootFromCwd() {
@@ -269,14 +271,25 @@ async function runAdrNew(opts: {
   process.stdout.write(formatDecisionDetail(decision) + "\n");
 }
 
-async function runAdrCheck() {
+async function runAdrCheck(opts?: { format?: string }) {
   const repoRoot = repoRootFromCwd();
   const config = loadConfig(repoRoot);
   const ir = await buildArchitectureIr(repoRoot, config);
   const memory = buildDecisionMemory(repoRoot);
   const result = checkDecisionsAgainstRepo(ir, config, memory);
-  process.stdout.write(formatDecisionCheckOutput(result) + "\n");
+  const output =
+    opts?.format === "markdown" ? formatDecisionCheckMarkdown(result) : formatDecisionCheckOutput(result);
+  process.stdout.write(output + "\n");
   if (result.violations.length > 0) process.exitCode = 1;
+}
+
+async function runAdrSuggest() {
+  const repoRoot = repoRootFromCwd();
+  const config = loadConfig(repoRoot);
+  const ir = await buildArchitectureIr(repoRoot, config);
+  const memory = buildDecisionMemory(repoRoot);
+  const suggestions = suggestAdrs(ir, memory);
+  process.stdout.write(formatAdrSuggestionsOutput(suggestions) + "\n");
 }
 
 async function runFindDuplicates(symbolName: string, limit = 5, proposedFilePath?: string, intent?: string) {
@@ -406,7 +419,13 @@ adr
 adr
   .command("check")
   .description("Check repo against recorded decision constraints")
-  .action(() => runAdrCheck());
+  .option("--format <format>", "text or markdown", "text")
+  .action((opts: { format?: string }) => runAdrCheck(opts));
+
+adr
+  .command("suggest")
+  .description("Suggest new ADRs from repeated architectural patterns")
+  .action(() => runAdrSuggest());
 
 program
   .command("decide")

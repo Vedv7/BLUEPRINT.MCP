@@ -66,11 +66,17 @@ npx blueprint adr new -t "Auth pattern" -d "Use JWT session architecture." \
   --avoid "Direct DB access from middleware" --domain auth
 npx blueprint adr list
 npx blueprint adr check
+npx blueprint adr check --format=markdown
+npx blueprint adr suggest
 ```
 
 Files: `.blueprint/decisions/ADR-001-slug.md`
 
-MCP: `list_architectural_decisions`, `check_decision_constraints`, `record_architectural_decision`
+**Lifecycle:** `proposed` → `accepted` → `deprecated` / `superseded`. Only **accepted** ADRs enforce governance.
+
+MCP: `list_architectural_decisions`, `explain_architectural_decisions`, `check_decision_constraints`, `record_architectural_decision`
+
+PR comments include an **ADR Check** section when using the Blueprint PR workflow.
 
 ## Domain intelligence
 
@@ -115,7 +121,7 @@ See [BLUEPRINT.MCP](https://github.com/Vedv7/BLUEPRINT.MCP/blob/main/.github/wor
 
 The bot:
 
-1. Runs `scan`, `doctor`, `check --format=markdown`, and `graph`
+1. Runs `scan`, `doctor`, `check --format=markdown`, `adr check --format=markdown`, and `graph`
 2. Posts one PR comment with a hidden marker `<!-- blueprint-pr-comment -->`
 3. **Updates** that same comment on new pushes (no spam)
 

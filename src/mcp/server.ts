@@ -27,6 +27,7 @@ import {
 import {
   checkDecisionsAgainstRepo,
   decisionContinuityAdvisory,
+  explainArchitecturalDecisions,
   formatDecisionCheckOutput
 } from "../engines/decisionGovernance.js";
 import { findDuplicateCandidates, findDuplicateForProposedSymbol } from "../engine/duplicateDetector.js";
@@ -451,6 +452,30 @@ export async function startMcpServer(opts: { repoRoot: string }) {
       return {
         content: [{ type: "text", text: formatDecisionCheckOutput(result) }],
         structuredContent: result
+      };
+    }
+  );
+
+  server.tool(
+    "explain_architectural_decisions",
+    "Explain which accepted ADRs apply before creating code (auth, payments, currency, etc.).",
+    {
+      filePath: z.string().optional().describe("Repo-relative path you plan to edit"),
+      intent: z.string().optional().describe("What you are about to build"),
+      domain: z.string().optional().describe("Business domain, e.g. payments or auth")
+    },
+    async ({ filePath, intent, domain }) => {
+      const memory = buildDecisionMemory(repoRoot);
+      const explanation = explainArchitecturalDecisions(memory, { filePath, intent, domain });
+      return {
+        content: [{ type: "text", text: explanation }],
+        structuredContent: {
+          filePath,
+          intent,
+          domain,
+          accepted: memory.decisions.filter((d) => d.status === "accepted"),
+          proposed: memory.decisions.filter((d) => d.status === "proposed")
+        }
       };
     }
   );

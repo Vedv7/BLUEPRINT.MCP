@@ -36,6 +36,7 @@ jobs:
           node dist/cli/index.js doctor > blueprint-doctor.txt
           node dist/cli/index.js check --format=markdown > blueprint-check.md
           node dist/cli/index.js graph > blueprint-graph.txt
+          node dist/cli/index.js adr check --format=markdown > blueprint-adr-check.md
         env:
           BLUEPRINT_EMBED_MOCK: "1"
 
@@ -47,6 +48,7 @@ jobs:
             const MARKER = "<!-- blueprint-pr-comment -->";
             const doctor = fs.readFileSync("blueprint-doctor.txt", "utf8").trim();
             const check = fs.readFileSync("blueprint-check.md", "utf8").trim();
+            const adrCheck = fs.readFileSync("blueprint-adr-check.md", "utf8").trim();
             const graph = fs.readFileSync("blueprint-graph.txt", "utf8").trim();
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
 
@@ -63,6 +65,9 @@ jobs:
               "",
               "### Policy check",
               check,
+              "",
+              "### ADR check",
+              adrCheck,
               "",
               "### Architecture graph",
               "```text",

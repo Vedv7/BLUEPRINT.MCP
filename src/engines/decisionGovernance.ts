@@ -166,6 +166,18 @@ function checkBoundaryIntent(
   }
 }
 
+export function getEnforcedDecisions(memory: DecisionMemory): ArchitecturalDecision[] {
+  return memory.decisions.filter((d) => d.status === "accepted");
+}
+
+export function getProposedDecisions(memory: DecisionMemory): ArchitecturalDecision[] {
+  return memory.decisions.filter((d) => d.status === "proposed");
+}
+
+export function getActiveDecisionCount(memory: DecisionMemory): number {
+  return getEnforcedDecisions(memory).length + getProposedDecisions(memory).length;
+}
+
 export function checkDecisionsAgainstRepo(
   ir: ArchitectureIR,
   _config: BlueprintConfig,
@@ -174,23 +186,25 @@ export function checkDecisionsAgainstRepo(
   const violations: DecisionViolation[] = [];
   const warnings: DecisionViolation[] = [];
 
-  const active = memory.decisions.filter((d) => d.status === "accepted" || d.status === "proposed");
+  const enforcedDecisions = getEnforcedDecisions(memory);
+  const proposedDecisions = getProposedDecisions(memory);
 
-  for (const adr of active) {
+  for (const adr of enforcedDecisions) {
     checkPlacementConstraints(ir, adr, violations, warnings);
     checkAvoidPatterns(ir, adr, violations);
     checkDomainOwnership(ir, adr, violations);
     checkBoundaryIntent(ir, adr, violations);
   }
 
-  return { decisions: active, violations, warnings };
+  return { enforcedDecisions, proposedDecisions, violations, warnings };
 }
 
 export function formatDecisionCheckOutput(result: DecisionCheckResult): string {
+  const activeCount = result.enforcedDecisions.length + result.proposedDecisions.length;
   const lines = [
     "BLUEPRINT DECISION GOVERNANCE",
     "",
-    `Active decisions: ${result.decisions.length}`,
+    `Active decisions: ${activeCount} (enforced: ${result.enforcedDecisions.length}, proposed: ${result.proposedDecisions.length})`,
     "",
     "Violations:",
     ...(result.violations.length
@@ -202,6 +216,46 @@ export function formatDecisionCheckOutput(result: DecisionCheckResult): string {
       ? result.warnings.map((v) => `- [${v.severity}] ${v.adrId}: ${v.message}`)
       : ["- none"])
   ];
+  return lines.join("\n");
+}
+
+export function formatDecisionCheckMarkdown(result: DecisionCheckResult): string {
+  const activeCount = result.enforcedDecisions.length + result.proposedDecisions.length;
+  const lines = [
+    "## ADR Check",
+    "",
+    `- Active decisions: ${activeCount}`,
+    `- Enforced (accepted): ${result.enforcedDecisions.length}`,
+    `- Proposed (informational): ${result.proposedDecisions.length}`,
+    `- Violations: ${result.violations.length}`,
+    `- Warnings: ${result.warnings.length}`,
+    ""
+  ];
+
+  if (result.enforcedDecisions.length) {
+    lines.push("### Accepted ADRs", "");
+    for (const d of result.enforcedDecisions) {
+      lines.push(`- **${d.id}** ${d.title}`);
+    }
+    lines.push("");
+  }
+
+  if (result.proposedDecisions.length) {
+    lines.push("### Proposed ADRs (not enforced)", "");
+    for (const d of result.proposedDecisions) {
+      lines.push(`- ${d.id} ${d.title}`);
+    }
+    lines.push("");
+  }
+
+  lines.push("### Violations", "");
+  if (!result.violations.length) lines.push("- none");
+  else result.violations.forEach((v) => lines.push(`- [${v.severity}] ${v.adrId}: ${v.message}`));
+
+  lines.push("", "### Warnings", "");
+  if (!result.warnings.length) lines.push("- none");
+  else result.warnings.forEach((v) => lines.push(`- [${v.severity}] ${v.adrId}: ${v.message}`));
+
   return lines.join("\n");
 }
 
@@ -228,7 +282,58 @@ export function relevantDecisionsForContext(
     if (intentLower && d.domains.some((dom) => intentLower.includes(dom))) hits.add(d);
   }
 
-  return [...hits].filter((d) => d.status === "accepted" || d.status === "proposed");
+  return [...hits].filter((d) => d.status === "accepted");
+}
+
+export function explainArchitecturalDecisions(
+  memory: DecisionMemory,
+  opts: { filePath?: string; intent?: string; domain?: string }
+): string {
+  const domain =
+    opts.domain ?? (opts.filePath ? inferDomainFromPath(opts.filePath) : null) ?? null;
+  const relevant = relevantDecisionsForContext(memory, opts);
+  const proposed = getProposedDecisions(memory).filter((d) => {
+    if (!domain) return true;
+    return d.domains.includes(domain) || d.domains.length === 0;
+  });
+
+  const lines = ["BLUEPRINT ARCHITECTURAL DECISIONS", ""];
+
+  if (opts.filePath || opts.intent || domain) {
+    lines.push("Context:");
+    if (opts.filePath) lines.push(`- path: ${opts.filePath}`);
+    if (opts.intent) lines.push(`- intent: ${opts.intent}`);
+    if (domain) lines.push(`- domain: ${domain}`);
+    lines.push("");
+  }
+
+  if (!relevant.length && !proposed.length) {
+    lines.push("No applicable ADRs found for this context.");
+    lines.push("", "Record decisions with: blueprint adr new");
+    return lines.filter(Boolean).join("\n");
+  }
+
+  if (relevant.length) {
+    lines.push("Applicable ADRs (accepted — enforce governance):", "");
+    for (const d of relevant) {
+      lines.push(`### ${d.id}: ${d.title}`);
+      lines.push(`**Decision:** ${d.decision.split("\n")[0]}`);
+      if (d.constraints.length) lines.push(`**Constraints:** ${d.constraints.join("; ")}`);
+      if (d.avoid.length) lines.push(`**Avoid:** ${d.avoid.join("; ")}`);
+      if (d.chosenPatterns.length) lines.push(`**Chosen:** ${d.chosenPatterns.join("; ")}`);
+      if (d.rejectedPatterns.length) lines.push(`**Rejected:** ${d.rejectedPatterns.join("; ")}`);
+      lines.push("");
+    }
+  }
+
+  if (proposed.length) {
+    lines.push("Proposed ADRs (informational — not enforced until accepted):", "");
+    for (const d of proposed.slice(0, 5)) {
+      lines.push(`- ${d.id}: ${d.title} — ${d.decision.split("\n")[0]}`);
+    }
+  }
+
+  return lines.filter(Boolean).join("\n");
 }
 
 export function decisionContinuityAdvisory(

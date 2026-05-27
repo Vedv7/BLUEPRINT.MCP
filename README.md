@@ -50,10 +50,12 @@ npx blueprint adr new -t "Auth pattern" -d "Use JWT sessions." -r "Stateless sca
 npx blueprint adr list
 npx blueprint adr show ADR-001
 npx blueprint adr check
+npx blueprint adr check --format=markdown
+npx blueprint adr suggest
 npx blueprint decide -t "..." -d "..."   # alias for adr new
 ```
 
-Decisions live in `.blueprint/decisions/` and are included in `blueprint.memory.json`, MCP advisories, and governance checks.
+Decisions live in `.blueprint/decisions/` (status: `proposed` | `accepted` | `superseded` | `deprecated`). Only **accepted** ADRs enforce checks. Included in PR comments, `blueprint.memory.json`, and MCP `explain_architectural_decisions`.
 
 ## Domain intelligence
 

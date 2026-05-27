@@ -35,7 +35,10 @@ export type DecisionViolation = {
 };
 
 export type DecisionCheckResult = {
-  decisions: ArchitecturalDecision[];
+  /** Accepted ADRs used for enforcement */
+  enforcedDecisions: ArchitecturalDecision[];
+  /** Proposed ADRs (informational only) */
+  proposedDecisions: ArchitecturalDecision[];
   violations: DecisionViolation[];
   warnings: DecisionViolation[];
 };
