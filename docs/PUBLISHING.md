@@ -57,6 +57,33 @@ npx blueprint doctor
 
 Point MCP config at `node_modules/blueprint-arch-mcp/dist/cli/index.js mcp`.
 
+## Git: keep Cursor off the Contributors list
+
+GitHub lists **cursoragent** when commits include:
+
+`Co-authored-by: Cursor <cursoragent@cursor.com>`
+
+**Disable in Cursor:** Settings → **Agents** → **Attribution** → turn off **Commit attribution** (and PR attribution if desired). Restart Cursor.
+
+**CLI config** (`~/.cursor/cli-config.json`):
+
+```json
+{
+  "attribution": {
+    "attributeCommitsToAgent": false,
+    "attributePRsToAgent": false
+  }
+}
+```
+
+**This repo:** enable the hook after clone:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The hook strips Cursor co-author lines before each commit.
+
 ## Repository
 
 https://github.com/Vedv7/BLUEPRINT.MCP
