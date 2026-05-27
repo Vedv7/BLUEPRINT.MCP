@@ -6,6 +6,10 @@ Blueprint gives AI coding agents architectural memory.
 
 It helps Cursor and Claude Code reuse existing abstractions, avoid duplicate helpers, and follow repository structure with advisory-first guidance.
 
+## Use in your repo
+
+See **[docs/USE-IN-YOUR-REPO.md](docs/USE-IN-YOUR-REPO.md)** for install, MCP setup, monorepo config, and **PR comment bot** workflow.
+
 ## Quickstart
 
 From `blueprint-mcp/`:
@@ -203,3 +207,6 @@ Blueprint defaults to `"enforcementMode": "advisory"` in `blueprint.config.json`
 In advisory mode, high-confidence issues return guidance instead of hard blocking.
 Set `"enforcementMode": "enforce"` only when teams are ready for strict blocking on high-severity issues.
 
+
+<!-- Blueprint PR bot validation -->
+<!-- upsert re-run -->

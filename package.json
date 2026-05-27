@@ -1,10 +1,24 @@
 {
   "name": "blueprint-mcp",
   "version": "0.1.0",
-  "private": false,
+  "description": "Blueprint MCP: multi-language architectural memory and guardrails for AI coding agents",
+  "keywords": ["mcp", "architecture", "cursor", "ai", "typescript", "python", "java", "spring"],
+  "license": "MIT",
+  "author": "Vedv7",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Vedv7/BLUEPRINT.MCP.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Vedv7/BLUEPRINT.MCP/issues"
+  },
+  "homepage": "https://github.com/Vedv7/BLUEPRINT.MCP#readme",
   "type": "module",
-  "description": "Blueprint MCP: architectural guardrails for AI coding agents",
-  "files": ["dist", "bin", "python", "docs"],
+  "engines": {
+    "node": ">=20"
+  },
+  "files": ["dist", "bin", "python", "docs", "LICENSE", "README.md"],
+  "prepublishOnly": "npm run build",
   "bin": {
     "blueprint": "./bin/blueprint.mjs"
   },
