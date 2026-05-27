@@ -1,0 +1,30 @@
+name: Blueprint Architecture Check
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+jobs:
+  blueprint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: blueprint-mcp/package-lock.json
+
+      - name: Install dependencies
+        working-directory: blueprint-mcp
+        run: npm ci
+
+      - name: Build Blueprint
+        working-directory: blueprint-mcp
+        run: npm run build
+
+      - name: Blueprint Architecture Check
+        working-directory: blueprint-mcp
+        run: node dist/cli/index.js check --ci

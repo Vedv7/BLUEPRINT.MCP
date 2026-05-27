@@ -1,0 +1,33 @@
+# Dependencies & build
+node_modules/
+dist/
+
+# Local Blueprint index
+.blueprint/
+*.db
+*.db-journal
+
+# IDE / agent tooling (never publish)
+.cursor/
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env & secrets
+.env
+.env.*
+
+# Validation / local experiments (stay on your machine)
+validation-repos/
+
+# Tests (run locally; not published to GitHub)
+tests/
+scripts/mcp-live-demo.mjs
+vitest.config.ts
+
+# Logs
+*.log
+npm-debug.log*

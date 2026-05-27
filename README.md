@@ -1,0 +1,205 @@
+# BLUEPRINT.MCP
+
+**Repository:** [github.com/Vedv7/BLUEPRINT.MCP](https://github.com/Vedv7/BLUEPRINT.MCP)
+
+Blueprint gives AI coding agents architectural memory.
+
+It helps Cursor and Claude Code reuse existing abstractions, avoid duplicate helpers, and follow repository structure with advisory-first guidance.
+
+## Quickstart
+
+From `blueprint-mcp/`:
+
+```bash
+npm install
+npm run build
+node dist/cli/index.js init
+node dist/cli/index.js scan
+node dist/cli/index.js mcp
+```
+
+## Cursor integration rule
+
+Copy the agent rule into your editor (e.g. Cursor → `.cursor/rules/blueprint.mdc`):
+
+- `docs/agent-rule-blueprint.mdc`
+
+The rule ensures the agent calls:
+
+- `find_existing_abstractions`
+- `suggest_file_placement`
+- `suggest_import_reuse`
+
+before creating new helpers, utilities, services, components, routes, or abstractions.
+
+## Demo (magic loop)
+
+Run a deterministic demo that includes an existing `formatCurrency()` utility and verifies a proposed duplicate utility:
+
+```bash
+npm run demo:magic
+```
+
+Expected behavior: advisory guidance suggests reusing an existing abstraction and following placement recommendations.
+
+## Project Report
+
+Blueprint can summarize repository architectural memory even before an agent acts:
+
+```bash
+npx blueprint report
+```
+
+Example output:
+
+```text
+Blueprint Report
+
+Framework: Next.js
+Files scanned: 42
+Symbols indexed: 118
+Path aliases: @/*
+Placement rules: 4 active
+
+Top reusable abstractions:
+- formatCurrency → src/lib/currency.ts
+- validateEmail → src/lib/validation.ts
+- fetchWithRetry → src/lib/http.ts
+
+Duplicate-risk clusters:
+- currency formatting: formatCurrency, formatMoney
+- email validation: validateEmail, checkEmailAddress
+
+Recommended actions:
+- Reuse src/lib/currency.ts for money formatting
+- Keep auth helpers under src/lib/auth
+```
+
+This makes Blueprint a repo architecture visibility tool, not only a reactive MCP guardrail.
+
+## Policy Check
+
+Run architecture policy validation:
+
+```bash
+npx blueprint check
+```
+
+`blueprint check` reports:
+- forbidden import boundary violations
+- required placement violations
+- duplicate-like utility warnings
+
+It exits with a non-zero code when violations are found.
+
+### CI mode
+
+Use `--ci` in GitHub Actions for clean logs (no JSON trailer):
+
+```bash
+npx blueprint check --ci
+```
+
+### GitHub Action
+
+```yaml
+- name: Blueprint Architecture Check
+  run: npx blueprint check --ci
+```
+
+A reference workflow lives at `.github/workflows/blueprint-check.yml`.
+
+### Infer rules
+
+Analyze repository structure and import patterns to suggest policies:
+
+```bash
+npx blueprint infer-rules
+```
+
+Example suggestions:
+- `src/components/**` should not import `src/server/**`
+- `src/lib/payments/internal/**` should stay inside payments
+- hooks should live under `src/hooks`
+- auth helpers should live under `src/lib/auth`
+
+Copy suggested `policies` into `blueprint.config.json`, then run `npx blueprint check --ci`.
+
+### PR report output
+
+Markdown output for PR comments:
+
+```bash
+npx blueprint check --format=markdown
+```
+
+## Architecture Graph
+
+Build module-level architecture visibility and boundary risk detection:
+
+```bash
+npx blueprint graph
+```
+
+Example sections:
+- `Modules`
+- `Dependency flows`
+- `Boundary risks`
+- `Suggested policies`
+
+This command stores resolved file imports in SQLite, resolves relative and alias imports, and highlights risky boundaries (like components importing server-only modules).
+
+## Semantic Architecture Intelligence
+
+Blueprint can detect renamed and semantically equivalent helpers using local MiniLM embeddings.
+
+Enable in `blueprint.config.json`:
+
+```json
+"embeddings": {
+  "enabled": true,
+  "model": "Xenova/all-MiniLM-L6-v2",
+  "hybridWeights": { "heuristic": 0.55, "semantic": 0.45 }
+}
+```
+
+Then scan:
+
+```bash
+npx blueprint scan
+npx blueprint report
+```
+
+`report` includes **Semantic duplicate clusters** (for example currency formatting helpers with different names).
+
+Duplicate detection uses **hybrid scoring** (heuristics + path context + semantic similarity). Embeddings are cached per file hash and only regenerated when files change.
+
+Example advisory reasons:
+
+```text
+Confidence: HIGH
+Reasons:
+- similar function intent
+- matching parameter structure
+- semantic similarity: 0.91
+```
+
+## MCP tools (V1)
+
+- `scan_repo`: index exported TS/JS symbols into a local SQLite db.
+- `find_existing_abstractions`: advisory-first ranked reuse suggestions for proposed symbols.
+- `suggest_file_placement`: advisory placement guidance based on intent + rules.
+- `suggest_import_reuse`: canonical import reuse suggestion.
+- `explain_architecture_boundaries`: module graph, dependency flows, and boundary risks.
+
+Compatibility aliases remain available for migration:
+- `find_duplicates` -> `find_existing_abstractions`
+- `suggest_import` -> `suggest_import_reuse`
+- `verify_and_place_code` (combined check, advisory-first by default)
+
+## Advisory-first mode
+
+Blueprint defaults to `"enforcementMode": "advisory"` in `blueprint.config.json`.
+In advisory mode, high-confidence issues return guidance instead of hard blocking.
+Set `"enforcementMode": "enforce"` only when teams are ready for strict blocking on high-severity issues.
+

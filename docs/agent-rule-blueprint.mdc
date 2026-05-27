@@ -1,0 +1,24 @@
+---
+description: Require Blueprint MCP checks before new abstractions
+alwaysApply: true
+---
+
+# Blueprint Architectural Memory Rule
+
+Before creating any new helper, utility, service, component, API route, or abstraction, call Blueprint MCP tools.
+
+Use:
+- `find_existing_abstractions`
+- `suggest_file_placement`
+- `suggest_import_reuse`
+
+Do not say you will create a new helper until Blueprint has confirmed no reusable abstraction exists.
+
+Workflow:
+1. Call `find_existing_abstractions` first.
+2. If HIGH or MEDIUM confidence match exists, reuse or extend the existing abstraction.
+3. Only create a new helper if Blueprint returns no meaningful match.
+4. Never create a parallel utility when an existing utility can be safely extended.
+
+If Blueprint returns high-confidence reuse, prefer importing the existing abstraction instead of creating duplicate code.
+If Blueprint returns placement guidance, follow the suggested path.

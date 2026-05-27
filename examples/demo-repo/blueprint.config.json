@@ -1,0 +1,14 @@
+{
+  "root": ".",
+  "include": ["src/**/*.ts", "src/**/*.tsx", "app/**/*.ts", "app/**/*.tsx"],
+  "dbPath": ".blueprint/blueprint.sqlite",
+  "enforcementMode": "advisory",
+  "placementRules": {
+    "react_component": "src/components",
+    "hook": "src/hooks",
+    "utility": "src/lib",
+    "api_route": "src/app/api",
+    "server_action": "src/actions",
+    "type": "src/types"
+  }
+}

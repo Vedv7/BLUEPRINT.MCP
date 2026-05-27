@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "root": ".",
+  "include": ["src/**/*.ts", "src/**/*.tsx", "app/**/*.ts", "app/**/*.tsx"],
+  "dbPath": ".blueprint/blueprint.sqlite",
+  "enforcementMode": "advisory",
+  "embeddings": {
+    "enabled": false,
+    "model": "Xenova/all-MiniLM-L6-v2",
+    "dimensions": 384,
+    "minSemanticScore": 0.72,
+    "clusterThreshold": 0.78,
+    "hybridWeights": {
+      "heuristic": 0.55,
+      "semantic": 0.45
+    }
+  },
+  "policies": {
+    "forbiddenImports": [],
+    "requiredPlacement": []
+  },
+  "placementRules": {
+    "react_component": "src/components",
+    "hook": "src/hooks",
+    "utility": "src/lib",
+    "api_route": "src/app/api",
+    "server_action": "src/actions",
+    "type": "src/types"
+  }
+}
