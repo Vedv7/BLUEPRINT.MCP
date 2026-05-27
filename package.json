@@ -1,8 +1,17 @@
 {
   "name": "blueprint-arch-mcp",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Blueprint MCP: multi-language architectural memory and guardrails for AI coding agents",
-  "keywords": ["mcp", "architecture", "cursor", "ai", "typescript", "python", "java", "spring"],
+  "keywords": [
+    "mcp",
+    "architecture",
+    "cursor",
+    "ai",
+    "typescript",
+    "python",
+    "java",
+    "spring"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -16,7 +25,14 @@
   "engines": {
     "node": ">=20"
   },
-  "files": ["dist", "bin", "python", "docs", "LICENSE", "README.md"],
+  "files": [
+    "dist",
+    "bin",
+    "python",
+    "docs",
+    "LICENSE",
+    "README.md"
+  ],
   "prepublishOnly": "npm run build",
   "bin": {
     "blueprint": "./bin/blueprint.mjs"
