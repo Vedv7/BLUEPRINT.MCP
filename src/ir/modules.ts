@@ -1,5 +1,6 @@
 import type { BlueprintConfig } from "../config/loadConfig.js";
 import type { FileNode, ModuleNode } from "./types.js";
+import { classifyJavaSpringLayer, javaLayerModuleId, packageFromJavaPath } from "./javaLayers.js";
 
 function normalize(p: string) {
   return p.replaceAll("\\", "/");
@@ -7,6 +8,14 @@ function normalize(p: string) {
 
 export function classifyModulePath(filePath: string, config?: BlueprintConfig): string {
   const p = normalize(filePath);
+
+  if (p.endsWith(".java") || p.includes("src/main/java/")) {
+    const pkg = packageFromJavaPath(p.endsWith(".java") ? p : `${p}.java`);
+    return javaLayerModuleId(classifyJavaSpringLayer(p, pkg));
+  }
+
+  if (p.startsWith("frontend/") || p.includes("/frontend/")) return "frontend";
+  if (p.startsWith("ml-service/") || p.includes("/ml-service/")) return "ml-service";
 
   const custom = config?.modules?.patterns?.find((pattern) => {
     const prefix = pattern.match.replace(/\*\*$/, "").replace(/\*$/, "");

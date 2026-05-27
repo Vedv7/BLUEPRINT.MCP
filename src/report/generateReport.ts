@@ -1,6 +1,7 @@
 import path from "node:path";
 import type { BlueprintConfig } from "../config/loadConfig.js";
-import type { ModuleNode } from "../ir/types.js";
+import type { ArchitectureIR, ModuleNode } from "../ir/types.js";
+import { findCrossLanguageEquivalents } from "../engines/crossLanguage.js";
 import { buildSemanticDuplicateClusters } from "../embeddings/cluster.js";
 import { openDb } from "../db/db.js";
 import { diceCoefficient } from "../engine/stringSim.js";
@@ -169,6 +170,34 @@ function buildRecommendations(rows: SymbolRow[], clusters: Array<{ label: string
   return recommendations;
 }
 
+function formatLanguageSection(ir?: ArchitectureIR) {
+  if (!ir) return [];
+  const stats = new Map<string, { files: number; symbols: number }>();
+  for (const f of ir.files) {
+    const row = stats.get(f.language) ?? { files: 0, symbols: 0 };
+    row.files += 1;
+    stats.set(f.language, row);
+  }
+  for (const s of ir.symbols) {
+    const row = stats.get(s.language) ?? { files: 0, symbols: 0 };
+    row.symbols += 1;
+    stats.set(s.language, row);
+  }
+  const labels: Record<string, string> = {
+    typescript: "TypeScript",
+    javascript: "JavaScript",
+    python: "Python",
+    java: "Java"
+  };
+  return [
+    "",
+    "Languages:",
+    ...[...stats.entries()].map(
+      ([id, st]) => `- ${labels[id] ?? id}: ${st.files} files, ${st.symbols} symbols`
+    )
+  ];
+}
+
 function formatMonorepoSection(modules: ModuleNode[]) {
   const mono = modules.filter(
     (m) => m.id.startsWith("apps/") || m.id.startsWith("packages/") || m.id.startsWith("services/")
@@ -187,6 +216,7 @@ export async function generateBlueprintReport(opts: {
   filesScanned: number;
   symbolsIndexed: number;
   modules?: ModuleNode[];
+  ir?: ArchitectureIR;
 }) {
   const dbAbs = path.join(opts.repoRoot, opts.config.dbPath);
   const db = await openDb(dbAbs);
@@ -200,6 +230,7 @@ export async function generateBlueprintReport(opts: {
   const clusters = buildDuplicateRiskClusters(rows);
   const recommendations = buildRecommendations(rows, clusters);
   const activeRules = countActivePlacementRules(opts.config);
+  const crossLang = opts.ir ? findCrossLanguageEquivalents(opts.ir) : [];
 
   const reportLines = [
     "Blueprint Report",
@@ -209,6 +240,7 @@ export async function generateBlueprintReport(opts: {
     `Symbols indexed: ${opts.symbolsIndexed}`,
     `Path aliases: ${opts.config.pathAliases.map((a) => normalizeAlias(a.aliasPrefix)).join(", ") || "None"}`,
     `Placement rules: ${activeRules} active`,
+    ...formatLanguageSection(opts.ir),
     ...formatMonorepoSection(opts.modules ?? []),
     "",
     "Top reusable abstractions:",
@@ -225,6 +257,11 @@ export async function generateBlueprintReport(opts: {
     ...(semanticClusters.length
       ? semanticClusters.map((c) => `- ${c.label}: ${c.symbols.join(", ")} (avg sim ${c.avgSimilarity})`)
       : ["- (enable embeddings in blueprint.config.json)"]),
+    "",
+    "Cross-language equivalents:",
+    ...(crossLang.length
+      ? crossLang.map((c) => `- ${c.label} (${c.note})`)
+      : ["- (none detected)"]),
     "",
     "Recommended actions:",
     ...recommendations.map((r) => `- ${r}`)

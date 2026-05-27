@@ -15,6 +15,7 @@ import { formatInferredPoliciesOutput, inferPoliciesFromRepo } from "../rules/in
 import { buildArchitectureGraph, formatArchitectureGraphOutput } from "../graph/buildArchitectureGraph.js";
 import { scanAndIndexRepo } from "../indexer/scanAndIndex.js";
 import { analyzeRepoCoverage, formatDoctorReport } from "../coverage/repoCoverage.js";
+import { writeBlueprintMemorySnapshot } from "../snapshot/generateSnapshot.js";
 
 function repoRootFromCwd() {
   return process.cwd();
@@ -87,6 +88,8 @@ async function runDoctor() {
           eligibleJsTsFiles: coverage.eligibleJsTsFiles,
           parsedPythonFiles: coverage.parsedPythonFiles,
           eligiblePythonFiles: coverage.eligiblePythonFiles,
+          parsedJavaFiles: coverage.parsedJavaFiles,
+          eligibleJavaFiles: coverage.eligibleJavaFiles,
           coverageRatio: coverage.coverageRatio,
           languages: coverage.languages
         }
@@ -110,9 +113,17 @@ async function runReport() {
     config,
     filesScanned,
     symbolsIndexed,
-    modules: ir.modules
+    modules: ir.modules,
+    ir
   });
   process.stdout.write(report.text + "\n");
+}
+
+async function runSnapshot() {
+  const repoRoot = repoRootFromCwd();
+  const { config, ir } = await scanAndIndex(repoRoot);
+  const result = await writeBlueprintMemorySnapshot(repoRoot, ir, config);
+  process.stdout.write(JSON.stringify({ path: result.path, adapters: result.snapshot.adapters }, null, 2) + "\n");
 }
 
 async function runCheck(opts: { ci?: boolean; format?: string }) {
@@ -240,6 +251,10 @@ program
   .description("Infer suggested architecture policies from repo structure")
   .action(() => runInferRules());
 program.command("graph").description("Build architecture graph and boundary risks").action(() => runGraph());
+program
+  .command("snapshot")
+  .description("Write blueprint.memory.json architecture snapshot for agents")
+  .action(() => runSnapshot());
 program
   .command("find-duplicates")
   .description("Find likely duplicate symbols")

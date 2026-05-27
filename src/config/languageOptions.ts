@@ -9,8 +9,13 @@ export function pythonExportedOnly(config: BlueprintConfig): boolean {
   return config.languages?.python?.indexNonExported !== true;
 }
 
+export function javaExportedOnly(config: BlueprintConfig): boolean {
+  return config.languages?.java?.indexNonExported !== true;
+}
+
 export function exportedOnlyForAdapter(adapterId: LanguageId, config: BlueprintConfig, override?: boolean): boolean {
   if (override !== undefined) return override;
   if (adapterId === "python") return pythonExportedOnly(config);
+  if (adapterId === "java") return javaExportedOnly(config);
   return typescriptExportedOnly(config);
 }

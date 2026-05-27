@@ -3,6 +3,7 @@ import { minimatch } from "minimatch";
 import { diceCoefficient } from "../engine/stringSim.js";
 import type { BlueprintConfig } from "../config/loadConfig.js";
 import type { ArchitectureIR } from "../ir/types.js";
+import { checkSpringLayerRules } from "./springCheck.js";
 
 export type CheckFinding = {
   file: string;
@@ -96,9 +97,10 @@ function checkDuplicateLikeWarnings(ir: ArchitectureIR): CheckWarning[] {
 }
 
 export function runBlueprintCheckFromIr(ir: ArchitectureIR, config: BlueprintConfig): CheckResult {
+  const spring = checkSpringLayerRules(ir);
   return {
-    violations: [...checkForbiddenImports(ir, config), ...checkRequiredPlacement(ir, config)],
-    warnings: checkDuplicateLikeWarnings(ir)
+    violations: [...checkForbiddenImports(ir, config), ...checkRequiredPlacement(ir, config), ...spring.violations],
+    warnings: [...checkDuplicateLikeWarnings(ir), ...spring.warnings]
   };
 }
 

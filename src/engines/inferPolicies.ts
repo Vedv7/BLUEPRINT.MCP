@@ -2,6 +2,8 @@ import { minimatch } from "minimatch";
 import type { BlueprintConfig } from "../config/loadConfig.js";
 import type { ArchitectureIR } from "../ir/types.js";
 import { classifyModulePath } from "../ir/modules.js";
+import { classifyJavaSpringLayer, detectSpringProject, packageFromJavaPath } from "../ir/javaLayers.js";
+import { DEFAULT_SPRING_FORBIDDEN } from "./springCheck.js";
 
 export type InferredPolicies = {
   forbiddenImports: Array<{ from: string; to: string; message: string }>;
@@ -62,6 +64,44 @@ export function inferPoliciesFromIr(ir: ArchitectureIR, config: BlueprintConfig)
   const moduleIds = new Set(ir.files.map((f) => classifyModulePath(f.path, config)));
   if (moduleIds.size >= 3) {
     notes.push(`Detected modules: ${[...moduleIds].slice(0, 8).join(", ")}`);
+  }
+
+  if (detectSpringProject(filePaths)) {
+    notes.push("Detected Spring-style Java layering (controller/service/repository).");
+    for (const rule of DEFAULT_SPRING_FORBIDDEN) {
+      suggestions.push(rule);
+    }
+    const repoToController = ir.imports.filter((e) => {
+      if (!e.toPath) return false;
+      return (
+        classifyJavaSpringLayer(e.fromPath, packageFromJavaPath(e.fromPath)) === "repository" &&
+        classifyJavaSpringLayer(e.toPath, packageFromJavaPath(e.toPath)) === "controller"
+      );
+    });
+    if (repoToController.length) {
+      notes.push(`${repoToController.length} repository → controller import(s) detected (forbidden).`);
+    }
+    const controllerToRepo = ir.imports.filter((e) => {
+      if (!e.toPath) return false;
+      return (
+        classifyJavaSpringLayer(e.fromPath, packageFromJavaPath(e.fromPath)) === "controller" &&
+        classifyJavaSpringLayer(e.toPath, packageFromJavaPath(e.toPath)) === "repository"
+      );
+    });
+    if (controllerToRepo.length) {
+      notes.push(`${controllerToRepo.length} controller → repository import(s) detected (use service layer).`);
+    }
+  }
+
+  const hasFrontend = filePaths.some((p) => p.startsWith("frontend/") || p.startsWith("src/app/"));
+  const hasBackend = filePaths.some((p) => p.endsWith(".java") || p.startsWith("backend/"));
+  if (hasFrontend && hasBackend) {
+    suggestions.push({
+      from: "frontend/**",
+      to: "backend/**",
+      message: "Frontend must not import backend internals directly."
+    });
+    notes.push("Detected frontend + backend — cross-language boundary rule recommended.");
   }
 
   return {

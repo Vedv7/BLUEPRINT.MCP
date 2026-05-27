@@ -4,6 +4,7 @@ import { minimatch } from "minimatch";
 import type { BlueprintConfig } from "../config/loadConfig.js";
 import { JS_TS_EXTENSIONS, resolveTypeScriptIncludes, SKIP_WALK_DIRS } from "../adapters/typescript/globs.js";
 import { PYTHON_EXTENSION, resolvePythonIncludes } from "../adapters/python/globs.js";
+import { JAVA_EXTENSION, resolveJavaIncludes } from "../adapters/java/globs.js";
 import { buildArchitectureIr } from "../ir/buildArchitectureIr.js";
 import type { ArchitectureIR, ScriptDialect } from "../ir/types.js";
 import { normalizePath } from "../adapters/typescript/resolveImport.js";
@@ -31,6 +32,8 @@ export type RepoCoverageReport = {
   parsedJsTsFiles: number;
   eligiblePythonFiles: number;
   parsedPythonFiles: number;
+  eligibleJavaFiles: number;
+  parsedJavaFiles: number;
   coverageRatio: number;
   ir: ArchitectureIR;
 };
@@ -119,6 +122,7 @@ export function formatDoctorReport(coverage: RepoCoverageReport, opts: { configP
   lines.push(`Coverage: ${parsedTotal}/${eligibleTotal} source files parsed (${pct}%)`);
   lines.push(`  JS/TS: ${coverage.parsedJsTsFiles}/${coverage.eligibleJsTsFiles}`);
   lines.push(`  Python: ${coverage.parsedPythonFiles}/${coverage.eligiblePythonFiles}`);
+  lines.push(`  Java: ${coverage.parsedJavaFiles}/${coverage.eligibleJavaFiles}`);
   lines.push(`Symbols indexed: ${coverage.ir.symbols.length}`);
   lines.push(`Import edges: ${coverage.ir.imports.length}`);
 
@@ -142,6 +146,7 @@ export async function analyzeRepoCoverage(repoRoot: string, config: BlueprintCon
 
   const tsInclude = resolveTypeScriptIncludes(config);
   const pyInclude = resolvePythonIncludes(config);
+  const javaInclude = resolveJavaIncludes(config);
 
   const eligibleJsTs = allFiles.filter((p) => {
     const ext = path.posix.extname(p).toLowerCase();
@@ -154,7 +159,12 @@ export async function analyzeRepoCoverage(repoRoot: string, config: BlueprintCon
     return pyInclude.some((glob) => minimatch(p, glob, { dot: true, nocase: true }));
   });
 
-  const shouldBuild = eligibleJsTs.length + eligiblePython.length > 0;
+  const eligibleJava = allFiles.filter((p) => {
+    if (path.posix.extname(p).toLowerCase() !== JAVA_EXTENSION) return false;
+    return javaInclude.some((glob) => minimatch(p, glob, { dot: true, nocase: true }));
+  });
+
+  const shouldBuild = eligibleJsTs.length + eligiblePython.length + eligibleJava.length > 0;
   const ir = shouldBuild
     ? await buildArchitectureIr(repoRoot, config)
     : {
@@ -169,9 +179,11 @@ export async function analyzeRepoCoverage(repoRoot: string, config: BlueprintCon
 
   const parsedByDialect = countParsedByDialect(ir.files);
   const parsedPythonFiles = ir.files.filter((f) => f.language === "python").length;
+  const parsedJavaFiles = ir.files.filter((f) => f.language === "java").length;
   const parsedJsTsFiles = ir.files.filter((f) => f.language === "typescript").length;
 
   const pythonEnabled = config.languages?.python?.enabled !== false;
+  const javaEnabled = config.languages?.java?.enabled !== false;
   const languages: LanguageCoverageLine[] = [
     {
       id: "typescript",
@@ -197,9 +209,9 @@ export async function analyzeRepoCoverage(repoRoot: string, config: BlueprintCon
     {
       id: "java",
       label: "Java",
-      status: "detected_unsupported",
+      status: javaEnabled ? "supported" : "detected_unsupported",
       filesInRepo: repoLangCounts.get("java") ?? 0,
-      filesParsed: 0
+      filesParsed: javaEnabled ? parsedJavaFiles : 0
     }
   ];
 
@@ -218,8 +230,9 @@ export async function analyzeRepoCoverage(repoRoot: string, config: BlueprintCon
 
   const eligibleJsTsFiles = eligibleJsTs.length;
   const eligiblePythonFiles = eligiblePython.length;
-  const eligibleTotal = eligibleJsTsFiles + eligiblePythonFiles;
-  const parsedTotal = parsedJsTsFiles + parsedPythonFiles;
+  const eligibleJavaFiles = eligibleJava.length;
+  const eligibleTotal = eligibleJsTsFiles + eligiblePythonFiles + eligibleJavaFiles;
+  const parsedTotal = parsedJsTsFiles + parsedPythonFiles + parsedJavaFiles;
 
   return {
     languages,
@@ -227,6 +240,8 @@ export async function analyzeRepoCoverage(repoRoot: string, config: BlueprintCon
     parsedJsTsFiles,
     eligiblePythonFiles,
     parsedPythonFiles,
+    eligibleJavaFiles,
+    parsedJavaFiles,
     coverageRatio: eligibleTotal ? parsedTotal / eligibleTotal : 1,
     ir
   };

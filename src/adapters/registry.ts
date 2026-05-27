@@ -1,9 +1,10 @@
 import type { BlueprintConfig } from "../config/loadConfig.js";
 import type { LanguageAdapter } from "./types.js";
+import { javaAdapter } from "./java/javaAdapter.js";
 import { pythonAdapter } from "./python/pythonAdapter.js";
 import { typescriptAdapter } from "./typescript/adapter.js";
 
-const ALL_ADAPTERS: LanguageAdapter[] = [typescriptAdapter, pythonAdapter];
+const ALL_ADAPTERS: LanguageAdapter[] = [typescriptAdapter, pythonAdapter, javaAdapter];
 
 export function getRegisteredAdapters(): LanguageAdapter[] {
   return ALL_ADAPTERS;
@@ -15,6 +16,9 @@ function isAdapterEnabled(config: BlueprintConfig, adapter: LanguageAdapter): bo
   }
   if (adapter.id === "python") {
     return config.languages?.python?.enabled !== false;
+  }
+  if (adapter.id === "java") {
+    return config.languages?.java?.enabled !== false;
   }
   return false;
 }

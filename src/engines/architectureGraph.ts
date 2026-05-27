@@ -1,6 +1,7 @@
 import type { BlueprintConfig } from "../config/loadConfig.js";
 import type { ArchitectureIR } from "../ir/types.js";
 import { classifyModulePath } from "../ir/modules.js";
+import { classifyJavaSpringLayer, detectSpringProject, packageFromJavaPath } from "../ir/javaLayers.js";
 
 export type BoundaryRisk = {
   message: string;
@@ -8,6 +9,16 @@ export type BoundaryRisk = {
   toPath: string;
   rule: string;
 };
+
+function classifyTopLevelArea(filePath: string): string | null {
+  const p = filePath.replaceAll("\\", "/");
+  if (p.startsWith("frontend/") || p.includes("/frontend/") || p.startsWith("src/app/") || p.startsWith("src/components/")) {
+    return "frontend";
+  }
+  if (p.startsWith("ml-service/") || p.includes("/ml-service/")) return "ml-service";
+  if (p.endsWith(".java") || p.includes("src/main/java") || p.startsWith("backend/")) return "backend";
+  return null;
+}
 
 export type ArchitectureGraph = {
   modules: string[];
@@ -54,6 +65,49 @@ export function buildArchitectureGraphFromIr(ir: ArchitectureIR, config: Bluepri
         rule: "app pages should not import internal modules"
       });
     }
+
+    if (edge.language === "java") {
+      const fromLayer = classifyJavaSpringLayer(edge.fromPath, packageFromJavaPath(edge.fromPath));
+      const toLayer = classifyJavaSpringLayer(edge.toPath, packageFromJavaPath(edge.toPath));
+      if (fromLayer === "controller" && toLayer === "service") {
+        boundaryRisks.push({
+          message: `${edge.fromPath} imports ${edge.toPath}`,
+          fromPath: edge.fromPath,
+          toPath: edge.toPath,
+          rule: "controller → service (allowed Spring flow)"
+        });
+      }
+      if (fromLayer === "service" && toLayer === "repository") {
+        boundaryRisks.push({
+          message: `${edge.fromPath} imports ${edge.toPath}`,
+          fromPath: edge.fromPath,
+          toPath: edge.toPath,
+          rule: "service → repository (allowed Spring flow)"
+        });
+      }
+      if (fromLayer === "repository" && toLayer === "controller") {
+        boundaryRisks.push({
+          message: `${edge.fromPath} imports ${edge.toPath}`,
+          fromPath: edge.fromPath,
+          toPath: edge.toPath,
+          rule: "repository → controller (forbidden Spring flow)"
+        });
+      }
+      if (fromLayer === "controller" && toLayer === "repository") {
+        boundaryRisks.push({
+          message: `${edge.fromPath} imports ${edge.toPath}`,
+          fromPath: edge.fromPath,
+          toPath: edge.toPath,
+          rule: "controller → repository (discouraged — use service)"
+        });
+      }
+    }
+
+    const fromTop = classifyTopLevelArea(edge.fromPath);
+    const toTop = classifyTopLevelArea(edge.toPath);
+    if (fromTop && toTop && fromTop !== toTop) {
+      flows.add(`${fromTop} -> ${toTop}`);
+    }
   }
 
   const suggestedPolicies = new Set<string>();
@@ -62,6 +116,15 @@ export function buildArchitectureGraphFromIr(ir: ArchitectureIR, config: Bluepri
   }
   if (boundaryRisks.some((r) => r.rule === "app pages should not import internal modules")) {
     suggestedPolicies.add("app pages should not import internal modules");
+  }
+  if (detectSpringProject(ir.files.map((f) => f.path))) {
+    suggestedPolicies.add("controller → service → repository layering");
+    if (boundaryRisks.some((r) => r.rule.includes("forbidden Spring"))) {
+      suggestedPolicies.add("repository must not import controller");
+    }
+    if (boundaryRisks.some((r) => r.rule.includes("discouraged"))) {
+      suggestedPolicies.add("controller should not import repository directly");
+    }
   }
 
   return {
