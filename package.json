@@ -19,7 +19,8 @@
     "demo:magic": "cmd /c \"cd examples\\demo-repo && node ..\\..\\dist\\cli\\index.js scan && node ..\\..\\dist\\cli\\index.js verify formatMoney src/utils/paymentFormatter.ts utility_payment_formatter\"",
     "test": "vitest run",
     "test:all": "npm run typecheck && npm run build && npm test && npm run demo:magic",
-    "validate:phase1": "npm run build && node scripts/phase1-validation.mjs"
+    "validate:phase1": "npm run build && node scripts/phase1-validation.mjs",
+    "validate:phase5": "npm run build && node scripts/phase5-validation.mjs"
   },
   "dependencies": {
     "@xenova/transformers": "^2.17.2",

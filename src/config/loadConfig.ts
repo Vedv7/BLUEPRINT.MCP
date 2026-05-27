@@ -25,6 +25,8 @@ export type BlueprintConfig = {
   include: string[];
   dbPath: string;
   enforcementMode: "advisory" | "enforce";
+  /** lenient = fewer warnings; balanced = default; strict = more boundary warnings */
+  strictness?: "lenient" | "balanced" | "strict";
   framework: "nextjs" | "react" | "vite" | "node-express" | "unknown";
   embeddings: EmbeddingsConfig;
   languages?: {
@@ -77,6 +79,7 @@ const DEFAULT_CONFIG: BlueprintConfig = {
   include: [],
   dbPath: ".blueprint/blueprint.sqlite",
   enforcementMode: "advisory",
+  strictness: "balanced",
   framework: "unknown",
   embeddings: DEFAULT_EMBEDDINGS,
   languages: {
@@ -222,6 +225,8 @@ export function loadConfig(repoRoot: string): BlueprintConfig {
     ...DEFAULT_CONFIG,
     ...parsed,
     enforcementMode: parsed.enforcementMode === "enforce" ? "enforce" : "advisory",
+    strictness:
+      parsed.strictness === "lenient" || parsed.strictness === "strict" ? parsed.strictness : "balanced",
     framework,
     embeddings,
     pathAliases: loadPathAliases(repoRoot),

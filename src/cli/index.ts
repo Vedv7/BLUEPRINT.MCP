@@ -64,7 +64,7 @@ function runInit() {
   process.stdout.write("Wrote blueprint.config.json\n");
 }
 
-async function runDoctor() {
+async function runDoctor(opts?: { json?: boolean }) {
   const repoRoot = repoRootFromCwd();
   const config = loadConfig(repoRoot);
   const dbAbs = path.join(repoRoot, config.dbPath);
@@ -76,28 +76,31 @@ async function runDoctor() {
     framework: config.framework
   });
   process.stdout.write(text + "\n");
-  process.stdout.write(
-    JSON.stringify(
-      {
-        repoRoot,
-        configPresent: fs.existsSync(configPath),
-        dbPresent: fs.existsSync(dbAbs),
-        framework: config.framework,
-        coverage: {
-          parsedJsTsFiles: coverage.parsedJsTsFiles,
-          eligibleJsTsFiles: coverage.eligibleJsTsFiles,
-          parsedPythonFiles: coverage.parsedPythonFiles,
-          eligiblePythonFiles: coverage.eligiblePythonFiles,
-          parsedJavaFiles: coverage.parsedJavaFiles,
-          eligibleJavaFiles: coverage.eligibleJavaFiles,
-          coverageRatio: coverage.coverageRatio,
-          languages: coverage.languages
-        }
-      },
-      null,
-      2
-    ) + "\n"
-  );
+  if (opts?.json) {
+    process.stdout.write(
+      JSON.stringify(
+        {
+          repoRoot,
+          configPresent: fs.existsSync(configPath),
+          dbPresent: fs.existsSync(dbAbs),
+          framework: config.framework,
+          filesIndexed: coverage.ir.files.length,
+          coverage: {
+            parsedJsTsFiles: coverage.parsedJsTsFiles,
+            eligibleJsTsFiles: coverage.eligibleJsTsFiles,
+            parsedPythonFiles: coverage.parsedPythonFiles,
+            eligiblePythonFiles: coverage.eligiblePythonFiles,
+            parsedJavaFiles: coverage.parsedJavaFiles,
+            eligibleJavaFiles: coverage.eligibleJavaFiles,
+            coverageRatio: coverage.coverageRatio,
+            languages: coverage.languages
+          }
+        },
+        null,
+        2
+      ) + "\n"
+    );
+  }
 }
 
 async function runMcp() {
@@ -237,7 +240,11 @@ program.name("blueprint").description("Blueprint MCP: architectural guardrails f
 
 program.command("init").description("Create blueprint.config.json").action(runInit);
 program.command("scan").description("Scan repo and index exported symbols").action(() => runScan());
-program.command("doctor").description("Language coverage, monorepo breakdown, config/db status").action(() => runDoctor());
+program
+  .command("doctor")
+  .description("Language coverage, monorepo breakdown, config/db status")
+  .option("--json", "Also print machine-readable JSON summary")
+  .action((opts: { json?: boolean }) => runDoctor(opts));
 program.command("mcp").description("Start Blueprint MCP server (stdio)").action(() => runMcp());
 program.command("report").description("Generate repository architecture memory report").action(() => runReport());
 program

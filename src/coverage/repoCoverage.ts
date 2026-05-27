@@ -116,13 +116,21 @@ export function formatDoctorReport(coverage: RepoCoverageReport, opts: { configP
   }
 
   const eligibleTotal = coverage.eligibleJsTsFiles + coverage.eligiblePythonFiles;
-  const parsedTotal = coverage.parsedJsTsFiles + coverage.parsedPythonFiles;
+  const parsedTotal =
+    coverage.parsedJsTsFiles + coverage.parsedPythonFiles + coverage.parsedJavaFiles;
+  const indexedTotal = coverage.ir.files.length;
   const pct = Math.round(coverage.coverageRatio * 100);
   lines.push("");
-  lines.push(`Coverage: ${parsedTotal}/${eligibleTotal} source files parsed (${pct}%)`);
+  lines.push(`Files indexed: ${indexedTotal}`);
+  lines.push(`Coverage (configured globs): ${parsedTotal}/${eligibleTotal} (${pct}%)`);
   lines.push(`  JS/TS: ${coverage.parsedJsTsFiles}/${coverage.eligibleJsTsFiles}`);
   lines.push(`  Python: ${coverage.parsedPythonFiles}/${coverage.eligiblePythonFiles}`);
   lines.push(`  Java: ${coverage.parsedJavaFiles}/${coverage.eligibleJavaFiles}`);
+  if (indexedTotal > parsedTotal) {
+    lines.push(
+      `  Note: ${indexedTotal - parsedTotal} file(s) indexed via language adapter defaults beyond config.include`
+    );
+  }
   lines.push(`Symbols indexed: ${coverage.ir.symbols.length}`);
   lines.push(`Import edges: ${coverage.ir.imports.length}`);
 

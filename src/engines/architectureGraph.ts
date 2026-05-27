@@ -8,6 +8,7 @@ export type BoundaryRisk = {
   fromPath: string;
   toPath: string;
   rule: string;
+  severity: "high" | "medium" | "low";
 };
 
 function classifyTopLevelArea(filePath: string): string | null {
@@ -18,6 +19,10 @@ function classifyTopLevelArea(filePath: string): string | null {
   if (p.startsWith("ml-service/") || p.includes("/ml-service/")) return "ml-service";
   if (p.endsWith(".java") || p.includes("src/main/java") || p.startsWith("backend/")) return "backend";
   return null;
+}
+
+function isLenient(config: BlueprintConfig) {
+  return config.strictness === "lenient";
 }
 
 export type ArchitectureGraph = {
@@ -50,7 +55,8 @@ export function buildArchitectureGraphFromIr(ir: ArchitectureIR, config: Bluepri
         message: `${edge.fromPath} imports ${edge.toPath}`,
         fromPath: edge.fromPath,
         toPath: edge.toPath,
-        rule: "components should not import server"
+        rule: "components should not import server",
+        severity: "high"
       });
     }
     if (
@@ -62,7 +68,8 @@ export function buildArchitectureGraphFromIr(ir: ArchitectureIR, config: Bluepri
         message: `${edge.fromPath} imports ${edge.toPath}`,
         fromPath: edge.fromPath,
         toPath: edge.toPath,
-        rule: "app pages should not import internal modules"
+        rule: "app pages should not import internal modules",
+        severity: "high"
       });
     }
 
@@ -70,35 +77,31 @@ export function buildArchitectureGraphFromIr(ir: ArchitectureIR, config: Bluepri
       const fromLayer = classifyJavaSpringLayer(edge.fromPath, packageFromJavaPath(edge.fromPath));
       const toLayer = classifyJavaSpringLayer(edge.toPath, packageFromJavaPath(edge.toPath));
       if (fromLayer === "controller" && toLayer === "service") {
-        boundaryRisks.push({
-          message: `${edge.fromPath} imports ${edge.toPath}`,
-          fromPath: edge.fromPath,
-          toPath: edge.toPath,
-          rule: "controller → service (allowed Spring flow)"
-        });
+        flows.add("java/controller -> java/service");
       }
       if (fromLayer === "service" && toLayer === "repository") {
-        boundaryRisks.push({
-          message: `${edge.fromPath} imports ${edge.toPath}`,
-          fromPath: edge.fromPath,
-          toPath: edge.toPath,
-          rule: "service → repository (allowed Spring flow)"
-        });
+        flows.add("java/service -> java/repository");
       }
       if (fromLayer === "repository" && toLayer === "controller") {
         boundaryRisks.push({
           message: `${edge.fromPath} imports ${edge.toPath}`,
           fromPath: edge.fromPath,
           toPath: edge.toPath,
-          rule: "repository → controller (forbidden Spring flow)"
+          rule: "repository must not import controller",
+          severity: "high"
         });
       }
-      if (fromLayer === "controller" && toLayer === "repository") {
+      if (
+        !isLenient(config) &&
+        fromLayer === "controller" &&
+        toLayer === "repository"
+      ) {
         boundaryRisks.push({
           message: `${edge.fromPath} imports ${edge.toPath}`,
           fromPath: edge.fromPath,
           toPath: edge.toPath,
-          rule: "controller → repository (discouraged — use service)"
+          rule: "controller should use service, not repository directly",
+          severity: config.strictness === "strict" ? "high" : "medium"
         });
       }
     }
@@ -119,10 +122,10 @@ export function buildArchitectureGraphFromIr(ir: ArchitectureIR, config: Bluepri
   }
   if (detectSpringProject(ir.files.map((f) => f.path))) {
     suggestedPolicies.add("controller → service → repository layering");
-    if (boundaryRisks.some((r) => r.rule.includes("forbidden Spring"))) {
+    if (boundaryRisks.some((r) => r.rule.includes("repository must not"))) {
       suggestedPolicies.add("repository must not import controller");
     }
-    if (boundaryRisks.some((r) => r.rule.includes("discouraged"))) {
+    if (boundaryRisks.some((r) => r.rule.includes("controller should use service"))) {
       suggestedPolicies.add("controller should not import repository directly");
     }
   }
@@ -148,15 +151,19 @@ export function formatArchitectureGraphOutput(graph: ArchitectureGraph) {
 
   lines.push("", "Modules:");
   if (!graph.modules.length) lines.push("- none");
-  else graph.modules.forEach((m) => lines.push(`- ${m}`));
+  else graph.modules.slice(0, 24).forEach((m) => lines.push(`- ${m}`));
+  if (graph.modules.length > 24) lines.push(`- … and ${graph.modules.length - 24} more`);
 
   lines.push("", "Dependency flows:");
   if (!graph.dependencyFlows.length) lines.push("- none");
-  else graph.dependencyFlows.forEach((f) => lines.push(`- ${f.from} -> ${f.to}`));
+  else graph.dependencyFlows.slice(0, 20).forEach((f) => lines.push(`- ${f.from} -> ${f.to}`));
+  if (graph.dependencyFlows.length > 20) lines.push(`- … and ${graph.dependencyFlows.length - 20} more`);
 
   lines.push("", "Boundary risks:");
-  if (!graph.boundaryRisks.length) lines.push("- none");
-  else graph.boundaryRisks.forEach((r) => lines.push(`- ${r.message}`));
+  const risks = graph.boundaryRisks.filter((r) => r.severity !== "low");
+  if (!risks.length) lines.push("- none");
+  else risks.slice(0, 15).forEach((r) => lines.push(`- [${r.severity}] ${r.message}`));
+  if (risks.length > 15) lines.push(`- … and ${risks.length - 15} more`);
 
   lines.push("", "Suggested policies:");
   if (!graph.suggestedPolicies.length) lines.push("- none");

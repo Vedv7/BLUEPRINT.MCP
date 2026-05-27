@@ -1,8 +1,12 @@
+import type { BlueprintConfig } from "../config/loadConfig.js";
 import type { ArchitectureIR } from "../ir/types.js";
 import { classifyJavaSpringLayer, detectSpringProject, packageFromJavaPath } from "../ir/javaLayers.js";
 import type { CheckFinding, CheckWarning } from "./architectureCheck.js";
 
-export function checkSpringLayerRules(ir: ArchitectureIR): {
+export function checkSpringLayerRules(
+  ir: ArchitectureIR,
+  config: BlueprintConfig
+): {
   violations: CheckFinding[];
   warnings: CheckWarning[];
 } {
@@ -29,7 +33,11 @@ export function checkSpringLayerRules(ir: ArchitectureIR): {
         rule: "repository must not depend on controller (Spring layering)"
       });
     }
-    if (fromLayer === "controller" && toLayer === "repository") {
+    if (
+      config.strictness !== "lenient" &&
+      fromLayer === "controller" &&
+      toLayer === "repository"
+    ) {
       warnings.push({
         file: edge.fromPath,
         message: `${edge.fromPath} imports ${edge.toPath} (controller should use service, not repository directly)`

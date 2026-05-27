@@ -1,0 +1,240 @@
+{
+  "generatedAt": "2026-05-27T03:42:46.240Z",
+  "blueprintCommit": "ea3841e",
+  "repos": [
+    {
+      "id": "next-blueprint-demo",
+      "path": "C:\\Users\\vedas\\Desktop\\blueprint\\next-blueprint-demo",
+      "commands": {
+        "doctor": {
+          "exitCode": 0,
+          "ok": true
+        },
+        "scan": {
+          "exitCode": 0,
+          "ok": true
+        },
+        "report": {
+          "exitCode": 0,
+          "ok": true
+        },
+        "graph": {
+          "exitCode": 0,
+          "ok": true
+        },
+        "check": {
+          "exitCode": 0,
+          "ok": true
+        },
+        "snapshot": {
+          "exitCode": 0,
+          "ok": true
+        }
+      },
+      "metrics": {
+        "doctor": {
+          "languages": {
+            "TypeScript": {
+              "status": "supported",
+              "parsed": 5
+            },
+            "JavaScript": {
+              "status": "supported",
+              "parsed": 0
+            },
+            "Python": {
+              "status": "supported",
+              "parsed": 0
+            },
+            "Java": {
+              "status": "supported",
+              "parsed": 0
+            }
+          },
+          "coverageParsed": 5,
+          "coverageEligible": 5,
+          "symbolsIndexed": 5,
+          "importEdges": 5
+        },
+        "scan": {
+          "filesScanned": 5,
+          "symbolsIndexed": 5
+        },
+        "graph": {
+          "flows": 1,
+          "flowSamples": [
+            "src/lib -> ./src"
+          ],
+          "risks": 1,
+          "riskSamples": [
+            "none"
+          ]
+        },
+        "check": {
+          "violations": 0,
+          "warnings": 0,
+          "violationSamples": [],
+          "warningSamples": []
+        },
+        "snapshotPath": "C:\\Users\\vedas\\Desktop\\blueprint\\next-blueprint-demo\\blueprint.memory.json"
+      },
+      "status": "ok"
+    },
+    {
+      "id": "Review-Gate",
+      "path": "C:\\Users\\vedas\\Desktop\\blueprint\\validation-repos\\Review-Gate",
+      "commands": {
+        "doctor": {
+          "exitCode": 0,
+          "ok": true
+        },
+        "scan": {
+          "exitCode": 0,
+          "ok": true
+        },
+        "report": {
+          "exitCode": 0,
+          "ok": true
+        },
+        "graph": {
+          "exitCode": 0,
+          "ok": true
+        },
+        "check": {
+          "exitCode": 0,
+          "ok": true
+        },
+        "snapshot": {
+          "exitCode": 0,
+          "ok": true
+        }
+      },
+      "metrics": {
+        "doctor": {
+          "languages": {
+            "TypeScript": {
+              "status": "supported",
+              "parsed": 0
+            },
+            "JavaScript": {
+              "status": "supported",
+              "parsed": 4
+            },
+            "Python": {
+              "status": "supported",
+              "parsed": 4
+            },
+            "Java": {
+              "status": "supported",
+              "parsed": 0
+            }
+          },
+          "coverageParsed": 8,
+          "coverageEligible": 8,
+          "symbolsIndexed": 33,
+          "importEdges": 77
+        },
+        "scan": {
+          "filesScanned": 8,
+          "symbolsIndexed": 33
+        },
+        "graph": {
+          "flows": 1,
+          "flowSamples": [
+            "none"
+          ],
+          "risks": 1,
+          "riskSamples": [
+            "none"
+          ]
+        },
+        "check": {
+          "violations": 0,
+          "warnings": 0,
+          "violationSamples": [],
+          "warningSamples": []
+        },
+        "snapshotPath": "C:\\Users\\vedas\\Desktop\\blueprint\\validation-repos\\Review-Gate\\blueprint.memory.json"
+      },
+      "status": "ok"
+    },
+    {
+      "id": "RankStream",
+      "path": "C:\\Users\\vedas\\Desktop\\blueprint\\validation-repos\\real-time-ranking-and-recommendation-platform",
+      "commands": {
+        "doctor": {
+          "exitCode": 0,
+          "ok": true
+        },
+        "scan": {
+          "exitCode": 0,
+          "ok": true
+        },
+        "report": {
+          "exitCode": 0,
+          "ok": true
+        },
+        "graph": {
+          "exitCode": 0,
+          "ok": true
+        },
+        "check": {
+          "exitCode": 0,
+          "ok": true
+        },
+        "snapshot": {
+          "exitCode": 0,
+          "ok": true
+        }
+      },
+      "metrics": {
+        "doctor": {
+          "languages": {
+            "TypeScript": {
+              "status": "supported",
+              "parsed": 2
+            },
+            "JavaScript": {
+              "status": "supported",
+              "parsed": 0
+            },
+            "Python": {
+              "status": "supported",
+              "parsed": 10
+            },
+            "Java": {
+              "status": "supported",
+              "parsed": 68
+            }
+          },
+          "coverageParsed": 12,
+          "coverageEligible": 12,
+          "symbolsIndexed": 295,
+          "importEdges": 545
+        },
+        "scan": {
+          "filesScanned": 80,
+          "symbolsIndexed": 295
+        },
+        "graph": {
+          "flows": 1,
+          "flowSamples": [
+            "none"
+          ],
+          "risks": 1,
+          "riskSamples": [
+            "none"
+          ]
+        },
+        "check": {
+          "violations": 0,
+          "warnings": 0,
+          "violationSamples": [],
+          "warningSamples": []
+        },
+        "snapshotPath": "C:\\Users\\vedas\\Desktop\\blueprint\\validation-repos\\real-time-ranking-and-recommendation-platform\\blueprint.memory.json"
+      },
+      "status": "ok"
+    }
+  ]
+}

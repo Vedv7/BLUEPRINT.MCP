@@ -70,7 +70,8 @@ function checkRequiredPlacement(ir: ArchitectureIR, config: BlueprintConfig): Ch
   return findings;
 }
 
-function checkDuplicateLikeWarnings(ir: ArchitectureIR): CheckWarning[] {
+function checkDuplicateLikeWarnings(ir: ArchitectureIR, config: BlueprintConfig): CheckWarning[] {
+  if (config.strictness === "lenient") return [];
   const warnings: CheckWarning[] = [];
   const exportedFns = ir.symbols.filter((s) => s.exported && (s.kind === "function" || s.kind === "class_method"));
   const utils = exportedFns.filter((f) => f.filePath.startsWith("src/utils/"));
@@ -86,7 +87,8 @@ function checkDuplicateLikeWarnings(ir: ArchitectureIR): CheckWarning[] {
         best = l;
       }
     }
-    if (best && bestScore >= 0.45) {
+    const threshold = config.strictness === "strict" ? 0.4 : 0.55;
+    if (best && bestScore >= threshold) {
       warnings.push({
         file: u.filePath,
         message: `${u.filePath} looks similar to ${best.filePath}`
@@ -97,10 +99,10 @@ function checkDuplicateLikeWarnings(ir: ArchitectureIR): CheckWarning[] {
 }
 
 export function runBlueprintCheckFromIr(ir: ArchitectureIR, config: BlueprintConfig): CheckResult {
-  const spring = checkSpringLayerRules(ir);
+  const spring = checkSpringLayerRules(ir, config);
   return {
     violations: [...checkForbiddenImports(ir, config), ...checkRequiredPlacement(ir, config), ...spring.violations],
-    warnings: [...checkDuplicateLikeWarnings(ir), ...spring.warnings]
+    warnings: [...checkDuplicateLikeWarnings(ir, config), ...spring.warnings]
   };
 }
 
