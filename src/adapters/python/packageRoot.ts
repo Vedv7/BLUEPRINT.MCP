@@ -11,7 +11,7 @@ export function blueprintPackageRoot(): string {
         const parsed = JSON.parse(fs.readFileSync(pkg, "utf8")) as { name?: string };
         if (
           parsed.name === "blueprint-mcp" ||
-          parsed.name === "@vedv7/blueprint-mcp"
+          parsed.name === "blueprint-arch-mcp"
         ) {
           return dir;
         }

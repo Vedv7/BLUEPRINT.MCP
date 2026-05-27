@@ -1,13 +1,9 @@
 {
-  "name": "@vedv7/blueprint-mcp",
-  "version": "0.1.1",
-  "publishConfig": {
-    "access": "public"
-  },
+  "name": "blueprint-arch-mcp",
+  "version": "0.1.2",
   "description": "Blueprint MCP: multi-language architectural memory and guardrails for AI coding agents",
   "keywords": ["mcp", "architecture", "cursor", "ai", "typescript", "python", "java", "spring"],
   "license": "MIT",
-  "author": "Vedv7",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Vedv7/BLUEPRINT.MCP.git"
