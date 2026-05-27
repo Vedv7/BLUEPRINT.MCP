@@ -40,6 +40,18 @@ The rule ensures the agent calls:
 
 before creating new helpers, utilities, services, components, routes, or abstractions.
 
+## Domain intelligence
+
+Blueprint infers **business domains** (payments, auth, analytics, …) from paths, builds **ownership stacks** (controller → service → repository), detects **cross-domain violations** and **architectural drift**, and scores repository health.
+
+```bash
+node dist/cli/index.js domains
+node dist/cli/index.js domain-health
+node dist/cli/index.js domain-check
+```
+
+MCP tools: `infer_domains`, `domain_health`, `explain_domain_boundaries`. Domain-aware guidance is included in `find_existing_abstractions` and `verify_and_place_code`.
+
 ## Demo (magic loop)
 
 Run a deterministic demo that includes an existing `formatCurrency()` utility and verifies a proposed duplicate utility:

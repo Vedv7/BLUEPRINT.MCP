@@ -9,6 +9,15 @@ import { buildArchitectureIr } from "../ir/buildArchitectureIr.js";
 import { persistArchitectureIr } from "../ir/persistIr.js";
 import { formatArchitectureGraphOutput } from "../graph/buildArchitectureGraph.js";
 import { buildArchitectureGraphFromIr } from "../engines/architectureGraph.js";
+import { buildDomainModel } from "../domain/buildDomainModel.js";
+import {
+  buildDomainAdvisory,
+  buildDomainArchitecture,
+  domainAdvisoryText,
+  filterCandidatesByDomain,
+  formatDomainArchitectureOutput,
+  formatDomainHealthMarkdown
+} from "../engines/domainIntelligence.js";
 import { findDuplicateCandidates, findDuplicateForProposedSymbol } from "../engine/duplicateDetector.js";
 import { suggestImportForSymbol } from "../engine/importSuggester.js";
 import { verifyPlacement } from "../engine/placementEngine.js";
@@ -126,35 +135,53 @@ export async function startMcpServer(opts: { repoRoot: string }) {
     },
     async ({ proposedSymbolName, proposedFilePath, intent, limit }) => {
       const db = await openDb(dbAbs);
-      const candidates = await findDuplicateCandidates(db, proposedSymbolName, limit, proposedFilePath, intent, {
+      let candidates = await findDuplicateCandidates(db, proposedSymbolName, limit, proposedFilePath, intent, {
         pathAliases: config.pathAliases,
         config,
         repoRoot
       });
       await db.close();
 
+      if (proposedFilePath) {
+        candidates = filterCandidatesByDomain(candidates, proposedFilePath, config);
+      }
+
+      const domainModel = proposedFilePath
+        ? buildDomainArchitecture(await buildArchitectureIr(repoRoot, config), config)
+        : null;
+      const domainAdvisory =
+        proposedFilePath && domainModel
+          ? buildDomainAdvisory({
+              proposedFilePath,
+              proposedSymbolName,
+              intent,
+              model: domainModel,
+              config
+            })
+          : null;
+
       const payload = {
         proposedSymbolName,
         proposedFilePath,
         intent,
         confidence: candidates[0]?.duplicateRisk ?? "low",
-        candidates
+        candidates,
+        domain: domainAdvisory
       };
       const best = candidates[0];
+      const blocks = [
+        domainAdvisory ? domainAdvisoryText(domainAdvisory) : null,
+        advisoryTextForAbstraction({
+          file: best?.file,
+          symbol: best?.symbol,
+          suggestedImport: best?.suggestedImport,
+          confidence: payload.confidence,
+          action: best ? "Prefer reuse/import over creating duplicate code." : "Proceed with implementation.",
+          reasons: best?.reasons
+        })
+      ].filter(Boolean);
       return {
-        content: [
-          {
-            type: "text",
-            text: advisoryTextForAbstraction({
-              file: best?.file,
-              symbol: best?.symbol,
-              suggestedImport: best?.suggestedImport,
-              confidence: payload.confidence,
-              action: best ? "Prefer reuse/import over creating duplicate code." : "Proceed with implementation.",
-              reasons: best?.reasons
-            })
-          }
-        ],
+        content: [{ type: "text", text: blocks.join("\n\n") }],
         structuredContent: payload
       };
     }
@@ -205,6 +232,57 @@ export async function startMcpServer(opts: { repoRoot: string }) {
   );
 
   server.tool(
+    "infer_domains",
+    "Infer business domains (payments, auth, …), ownership stacks, and cross-domain risks.",
+    {},
+    async () => {
+      const model = await buildDomainModel({ repoRoot, config });
+      return {
+        content: [{ type: "text", text: formatDomainArchitectureOutput(model) }],
+        structuredContent: model
+      };
+    }
+  );
+
+  server.tool(
+    "domain_health",
+    "Architecture health score from domain governance (violations, drift, boundary risks).",
+    {},
+    async () => {
+      const model = await buildDomainModel({ repoRoot, config });
+      return {
+        content: [
+          {
+            type: "text",
+            text: `${formatDomainHealthMarkdown(model)}\n\n${formatDomainArchitectureOutput(model)}`
+          }
+        ],
+        structuredContent: model
+      };
+    }
+  );
+
+  server.tool(
+    "explain_domain_boundaries",
+    "Domain boundary violations and drift (analytics→auth, payment internals, validator sprawl).",
+    {},
+    async () => {
+      const model = await buildDomainModel({ repoRoot, config });
+      const focus = [
+        "Domain violations:",
+        ...model.violations.map((v) => `- [${v.severity}] ${v.message}`),
+        "",
+        "Drift:",
+        ...model.drift.map((d) => `- [${d.severity}] ${d.message}`)
+      ].join("\n");
+      return {
+        content: [{ type: "text", text: focus }],
+        structuredContent: { violations: model.violations, drift: model.drift, health: model.health }
+      };
+    }
+  );
+
+  server.tool(
     "suggest_file_placement",
     "Suggest correct file placement by intent and folder conventions. Advisory-first guidance.",
     {
@@ -244,6 +322,16 @@ export async function startMcpServer(opts: { repoRoot: string }) {
       intent: z.string().describe("Short natural-language intent, e.g. 'utility to format payment amounts'")
     },
     async ({ proposedFilePath, proposedSymbolName, intent }) => {
+      const ir = await buildArchitectureIr(repoRoot, config);
+      const domainModel = buildDomainArchitecture(ir, config);
+      const domainAdvisory = buildDomainAdvisory({
+        proposedFilePath,
+        proposedSymbolName,
+        intent,
+        model: domainModel,
+        config
+      });
+
       const db = await openDb(dbAbs);
       const dup = await findDuplicateForProposedSymbol(db, proposedSymbolName, proposedFilePath, intent, {
         pathAliases: config.pathAliases,
@@ -268,6 +356,7 @@ export async function startMcpServer(opts: { repoRoot: string }) {
         decision,
         mode,
         severity,
+        domain: domainAdvisory,
         duplicate: dup,
         placement,
         suggestedAction:
@@ -288,20 +377,23 @@ export async function startMcpServer(opts: { repoRoot: string }) {
         content: [
           {
             type: "text",
-            text: advisoryTextForAbstraction({
-              file: response.duplicate.match?.file,
-              symbol: response.duplicate.match?.symbol,
-              suggestedImport: response.duplicate.suggestedImport,
-              confidence: response.duplicate.duplicateRisk,
-              action:
-                decision === "BLOCKED"
-                  ? "Do not create duplicate. Reuse existing function."
-                  : decision === "ADVISORY"
-                    ? "Prefer reuse and follow placement guidance."
-                    : "Proceed.",
-              reasons: response.duplicate.reasons,
-              explanation: response.duplicate.explanation
-            })
+            text: [
+              domainAdvisoryText(domainAdvisory),
+              advisoryTextForAbstraction({
+                file: response.duplicate.match?.file,
+                symbol: response.duplicate.match?.symbol,
+                suggestedImport: response.duplicate.suggestedImport,
+                confidence: response.duplicate.duplicateRisk,
+                action:
+                  decision === "BLOCKED"
+                    ? "Do not create duplicate. Reuse existing function."
+                    : decision === "ADVISORY"
+                      ? "Prefer reuse and follow placement guidance."
+                      : "Proceed.",
+                reasons: response.duplicate.reasons,
+                explanation: response.duplicate.explanation
+              })
+            ].join("\n\n")
           }
         ],
         structuredContent: response

@@ -16,6 +16,11 @@ import { buildArchitectureGraph, formatArchitectureGraphOutput } from "../graph/
 import { scanAndIndexRepo } from "../indexer/scanAndIndex.js";
 import { analyzeRepoCoverage, formatDoctorReport } from "../coverage/repoCoverage.js";
 import { writeBlueprintMemorySnapshot } from "../snapshot/generateSnapshot.js";
+import { buildDomainModel } from "../domain/buildDomainModel.js";
+import {
+  formatDomainArchitectureOutput,
+  formatDomainHealthMarkdown
+} from "../engines/domainIntelligence.js";
 
 function repoRootFromCwd() {
   return process.cwd();
@@ -180,6 +185,31 @@ async function runGraph() {
   process.stdout.write(formatArchitectureGraphOutput(graph) + "\n");
 }
 
+async function runDomains() {
+  const repoRoot = repoRootFromCwd();
+  const config = loadConfig(repoRoot);
+  const model = await buildDomainModel({ repoRoot, config });
+  process.stdout.write(formatDomainArchitectureOutput(model) + "\n");
+}
+
+async function runDomainHealth(opts: { format?: string }) {
+  const repoRoot = repoRootFromCwd();
+  const config = loadConfig(repoRoot);
+  const model = await buildDomainModel({ repoRoot, config });
+  const output =
+    opts.format === "markdown" ? formatDomainHealthMarkdown(model) : formatDomainArchitectureOutput(model);
+  process.stdout.write(output + "\n");
+  process.stdout.write(JSON.stringify(model.health, null, 2) + "\n");
+}
+
+async function runDomainCheck() {
+  const repoRoot = repoRootFromCwd();
+  const config = loadConfig(repoRoot);
+  const model = await buildDomainModel({ repoRoot, config });
+  process.stdout.write(formatDomainArchitectureOutput(model) + "\n");
+  if (model.violations.length > 0) process.exitCode = 1;
+}
+
 async function runFindDuplicates(symbolName: string, limit = 5, proposedFilePath?: string, intent?: string) {
   const repoRoot = repoRootFromCwd();
   const config = loadConfig(repoRoot);
@@ -258,6 +288,19 @@ program
   .description("Infer suggested architecture policies from repo structure")
   .action(() => runInferRules());
 program.command("graph").description("Build architecture graph and boundary risks").action(() => runGraph());
+program
+  .command("domains")
+  .description("Infer business domains, ownership stacks, and domain health")
+  .action(() => runDomains());
+program
+  .command("domain-health")
+  .description("Architecture health score from domain governance signals")
+  .option("--format <format>", "text or markdown", "text")
+  .action((opts: { format?: string }) => runDomainHealth(opts));
+program
+  .command("domain-check")
+  .description("Domain boundary violations and architectural drift (CI-friendly exit code)")
+  .action(() => runDomainCheck());
 program
   .command("snapshot")
   .description("Write blueprint.memory.json architecture snapshot for agents")

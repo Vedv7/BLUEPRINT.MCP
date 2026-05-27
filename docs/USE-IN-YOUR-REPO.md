@@ -49,6 +49,29 @@ Copy `docs/agent-rule-blueprint.mdc` → `.cursor/rules/blueprint.mdc`.
 | `npx blueprint check` | Policy violations |
 | `npx blueprint check --format=markdown` | PR-friendly check output |
 | `npx blueprint snapshot` | Write `blueprint.memory.json` |
+| `npx blueprint domains` | Infer business domains and ownership stacks |
+| `npx blueprint domain-health` | Architecture health score (0–100) |
+| `npx blueprint domain-check` | Domain violations + drift (CI exit code) |
+
+## Domain intelligence
+
+Blueprint infers domains from paths (`src/lib/payments/*`, `src/api/payments/*`, …) and builds ownership stacks (controller → service → repository).
+
+Optional config:
+
+```json
+{
+  "domains": {
+    "patterns": [{ "id": "payments", "match": "src/lib/payments/**" }],
+    "forbiddenCrossDomain": [
+      { "from": "analytics", "to": "auth", "message": "Analytics cannot import auth internals." }
+    ],
+    "flows": [{ "from": "notifications", "to": "payments", "allowed": false }]
+  }
+}
+```
+
+MCP tools: `infer_domains`, `domain_health`, `explain_domain_boundaries`.
 
 ## Multi-language monorepos
 

@@ -41,6 +41,14 @@ export type BlueprintConfig = {
     patterns?: Array<{ id: string; match: string }>;
     flows?: Array<{ from: string; to: string; allowed?: boolean }>;
   };
+  domains?: {
+    patterns?: Array<{ id: string; match: string }>;
+    catalog?: Array<{ id: string; tokens: string[] }>;
+    forbiddenCrossDomain?: Array<{ from: string; to: string; message: string }>;
+    flows?: Array<{ from: string; to: string; allowed?: boolean }>;
+    /** When true (default), flag lower layers importing higher layers within a domain */
+    enforceLayerStack?: boolean;
+  };
   pathAliases: Array<{ aliasPrefix: string; targetPrefix: string }>;
   placementRules: Record<string, string>;
   policies: {

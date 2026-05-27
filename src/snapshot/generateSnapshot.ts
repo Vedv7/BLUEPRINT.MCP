@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { BlueprintConfig } from "../config/loadConfig.js";
 import { buildArchitectureGraphFromIr } from "../engines/architectureGraph.js";
+import { buildDomainArchitecture } from "../engines/domainIntelligence.js";
 import { findCrossLanguageEquivalents } from "../engines/crossLanguage.js";
 import type { ArchitectureIR } from "../ir/types.js";
 import { classifyModulePath } from "../ir/modules.js";
@@ -17,6 +18,7 @@ export type BlueprintMemorySnapshot = {
   importEdgeCount: number;
   dependencyFlows: Array<{ from: string; to: string }>;
   crossLanguageEquivalents: ReturnType<typeof findCrossLanguageEquivalents>;
+  domainHealth: { score: number; risks: string[]; domains: string[] };
 };
 
 export function buildBlueprintMemorySnapshot(
@@ -24,6 +26,7 @@ export function buildBlueprintMemorySnapshot(
   config: BlueprintConfig
 ): BlueprintMemorySnapshot {
   const graph = buildArchitectureGraphFromIr(ir, config);
+  const domain = buildDomainArchitecture(ir, config);
   const langStats = new Map<string, { files: number; symbols: number }>();
 
   for (const file of ir.files) {
@@ -57,7 +60,12 @@ export function buildBlueprintMemorySnapshot(
     topSymbols,
     importEdgeCount: ir.imports.length,
     dependencyFlows: graph.dependencyFlows,
-    crossLanguageEquivalents: findCrossLanguageEquivalents(ir)
+    crossLanguageEquivalents: findCrossLanguageEquivalents(ir),
+    domainHealth: {
+      score: domain.health.score,
+      risks: domain.health.risks,
+      domains: domain.domains.map((d) => d.id)
+    }
   };
 }
 
