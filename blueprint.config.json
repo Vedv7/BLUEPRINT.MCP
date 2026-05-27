@@ -6,6 +6,10 @@
     "typescript": {
       "enabled": true,
       "indexNonExported": false
+    },
+    "python": {
+      "enabled": true,
+      "indexNonExported": false
     }
   },
   "dbPath": ".blueprint/blueprint.sqlite",

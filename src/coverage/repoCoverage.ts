@@ -3,9 +3,9 @@ import fs from "node:fs";
 import { minimatch } from "minimatch";
 import type { BlueprintConfig } from "../config/loadConfig.js";
 import { JS_TS_EXTENSIONS, resolveTypeScriptIncludes, SKIP_WALK_DIRS } from "../adapters/typescript/globs.js";
+import { PYTHON_EXTENSION, resolvePythonIncludes } from "../adapters/python/globs.js";
 import { buildArchitectureIr } from "../ir/buildArchitectureIr.js";
 import type { ArchitectureIR, ScriptDialect } from "../ir/types.js";
-import { typescriptExportedOnly } from "../config/typescriptOptions.js";
 import { normalizePath } from "../adapters/typescript/resolveImport.js";
 
 export type DetectedLanguage =
@@ -29,6 +29,8 @@ export type RepoCoverageReport = {
   languages: LanguageCoverageLine[];
   eligibleJsTsFiles: number;
   parsedJsTsFiles: number;
+  eligiblePythonFiles: number;
+  parsedPythonFiles: number;
   coverageRatio: number;
   ir: ArchitectureIR;
 };
@@ -46,8 +48,6 @@ const EXT_TO_LANG: Array<{ ext: string; id: DetectedLanguage }> = [
   { ext: ".rs", id: "rust" },
   { ext: ".cs", id: "csharp" }
 ];
-
-const SUPPORTED: DetectedLanguage[] = ["typescript", "javascript"];
 
 function walkRepoFiles(repoRoot: string, rootRel: string): string[] {
   const rootAbs = path.resolve(repoRoot, rootRel);
@@ -89,7 +89,8 @@ function countByLanguage(paths: string[]) {
 function countParsedByDialect(files: ArchitectureIR["files"]) {
   const counts: Record<ScriptDialect, number> = { typescript: 0, javascript: 0 };
   for (const f of files) {
-    counts[f.dialect] += 1;
+    if (f.dialect === "javascript") counts.javascript += 1;
+    else if (f.dialect === "typescript") counts.typescript += 1;
   }
   return counts;
 }
@@ -105,17 +106,19 @@ export function formatDoctorReport(coverage: RepoCoverageReport, opts: { configP
 
   for (const row of coverage.languages) {
     if (row.status === "supported") {
-      lines.push(`- ${row.label}: supported, ${row.filesParsed} files parsed (${row.filesInRepo} in repo)`);
+      lines.push(`- ${row.label}: supported, ${row.filesParsed} files parsed`);
     } else {
       lines.push(`- ${row.label}: detected, unsupported (${row.filesInRepo} files)`);
     }
   }
 
+  const eligibleTotal = coverage.eligibleJsTsFiles + coverage.eligiblePythonFiles;
+  const parsedTotal = coverage.parsedJsTsFiles + coverage.parsedPythonFiles;
   const pct = Math.round(coverage.coverageRatio * 100);
   lines.push("");
-  lines.push(
-    `Coverage: ${coverage.parsedJsTsFiles}/${coverage.eligibleJsTsFiles} JS/TS files parsed (${pct}%)`
-  );
+  lines.push(`Coverage: ${parsedTotal}/${eligibleTotal} source files parsed (${pct}%)`);
+  lines.push(`  JS/TS: ${coverage.parsedJsTsFiles}/${coverage.eligibleJsTsFiles}`);
+  lines.push(`  Python: ${coverage.parsedPythonFiles}/${coverage.eligiblePythonFiles}`);
   lines.push(`Symbols indexed: ${coverage.ir.symbols.length}`);
   lines.push(`Import edges: ${coverage.ir.imports.length}`);
 
@@ -137,29 +140,38 @@ export async function analyzeRepoCoverage(repoRoot: string, config: BlueprintCon
   const allFiles = walkRepoFiles(repoRoot, config.root);
   const repoLangCounts = countByLanguage(allFiles);
 
-  const include = resolveTypeScriptIncludes(config);
+  const tsInclude = resolveTypeScriptIncludes(config);
+  const pyInclude = resolvePythonIncludes(config);
+
   const eligibleJsTs = allFiles.filter((p) => {
     const ext = path.posix.extname(p).toLowerCase();
     if (!JS_TS_EXTENSIONS.has(ext)) return false;
-    return include.some((glob) => minimatch(p, glob, { dot: true, nocase: true }));
+    return tsInclude.some((glob) => minimatch(p, glob, { dot: true, nocase: true }));
   });
 
-  const exportedOnly = typescriptExportedOnly(config);
-  const ir =
-    eligibleJsTs.length > 0
-      ? await buildArchitectureIr(repoRoot, config, { exportedOnly })
-      : {
-          repoRoot,
-          files: [],
-          symbols: [],
-          imports: [],
-          modules: [],
-          boundaries: [],
-          adapters: [] as ArchitectureIR["adapters"]
-        };
+  const eligiblePython = allFiles.filter((p) => {
+    if (path.posix.extname(p).toLowerCase() !== PYTHON_EXTENSION) return false;
+    return pyInclude.some((glob) => minimatch(p, glob, { dot: true, nocase: true }));
+  });
+
+  const shouldBuild = eligibleJsTs.length + eligiblePython.length > 0;
+  const ir = shouldBuild
+    ? await buildArchitectureIr(repoRoot, config)
+    : {
+        repoRoot,
+        files: [],
+        symbols: [],
+        imports: [],
+        modules: [],
+        boundaries: [],
+        adapters: [] as ArchitectureIR["adapters"]
+      };
 
   const parsedByDialect = countParsedByDialect(ir.files);
+  const parsedPythonFiles = ir.files.filter((f) => f.language === "python").length;
+  const parsedJsTsFiles = ir.files.filter((f) => f.language === "typescript").length;
 
+  const pythonEnabled = config.languages?.python?.enabled !== false;
   const languages: LanguageCoverageLine[] = [
     {
       id: "typescript",
@@ -178,9 +190,9 @@ export async function analyzeRepoCoverage(repoRoot: string, config: BlueprintCon
     {
       id: "python",
       label: "Python",
-      status: "detected_unsupported",
+      status: pythonEnabled ? "supported" : "detected_unsupported",
       filesInRepo: repoLangCounts.get("python") ?? 0,
-      filesParsed: 0
+      filesParsed: pythonEnabled ? parsedPythonFiles : 0
     },
     {
       id: "java",
@@ -205,13 +217,17 @@ export async function analyzeRepoCoverage(repoRoot: string, config: BlueprintCon
   }
 
   const eligibleJsTsFiles = eligibleJsTs.length;
-  const parsedJsTsFiles = ir.files.length;
+  const eligiblePythonFiles = eligiblePython.length;
+  const eligibleTotal = eligibleJsTsFiles + eligiblePythonFiles;
+  const parsedTotal = parsedJsTsFiles + parsedPythonFiles;
 
   return {
     languages,
     eligibleJsTsFiles,
     parsedJsTsFiles,
-    coverageRatio: eligibleJsTsFiles ? parsedJsTsFiles / eligibleJsTsFiles : 1,
+    eligiblePythonFiles,
+    parsedPythonFiles,
+    coverageRatio: eligibleTotal ? parsedTotal / eligibleTotal : 1,
     ir
   };
 }

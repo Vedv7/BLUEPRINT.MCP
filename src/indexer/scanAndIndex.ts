@@ -1,7 +1,6 @@
 import path from "node:path";
 import type { BlueprintConfig } from "../config/loadConfig.js";
 import { loadConfig } from "../config/loadConfig.js";
-import { typescriptExportedOnly } from "../config/typescriptOptions.js";
 import { openDb } from "../db/db.js";
 import { indexSymbolEmbeddings, type EmbeddingIndexResult } from "../embeddings/indexSymbols.js";
 import { buildArchitectureIr } from "../ir/buildArchitectureIr.js";
@@ -24,7 +23,7 @@ export async function scanAndIndexRepo(
     config.embeddings.enabled = true;
   }
 
-  const ir = await buildArchitectureIr(repoRoot, config, { exportedOnly: typescriptExportedOnly(config) });
+  const ir = await buildArchitectureIr(repoRoot, config);
   const db = await openDb(path.join(repoRoot, config.dbPath));
   await persistArchitectureIr(db, ir);
 

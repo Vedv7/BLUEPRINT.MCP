@@ -80,7 +80,8 @@ const DEFAULT_CONFIG: BlueprintConfig = {
   framework: "unknown",
   embeddings: DEFAULT_EMBEDDINGS,
   languages: {
-    typescript: { enabled: true }
+    typescript: { enabled: true },
+    python: { enabled: true }
   },
   pathAliases: [{ aliasPrefix: "@/", targetPrefix: "src/" }],
   policies: {

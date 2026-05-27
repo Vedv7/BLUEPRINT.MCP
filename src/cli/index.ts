@@ -85,6 +85,8 @@ async function runDoctor() {
         coverage: {
           parsedJsTsFiles: coverage.parsedJsTsFiles,
           eligibleJsTsFiles: coverage.eligibleJsTsFiles,
+          parsedPythonFiles: coverage.parsedPythonFiles,
+          eligiblePythonFiles: coverage.eligiblePythonFiles,
           coverageRatio: coverage.coverageRatio,
           languages: coverage.languages
         }

@@ -14,6 +14,10 @@ export function classifyModulePath(filePath: string, config?: BlueprintConfig): 
   });
   if (custom) return custom.id;
 
+  if (p.startsWith("app/")) {
+    const parts = p.split("/");
+    return parts.length >= 2 ? `app/${parts[1]}` : "app";
+  }
   if (p.startsWith("src/components/")) return "src/components";
   if (p.startsWith("src/lib/")) return "src/lib";
   if (p.startsWith("src/server/")) return "src/server";
@@ -41,10 +45,6 @@ export function classifyModulePath(filePath: string, config?: BlueprintConfig): 
   if (p.startsWith("src/")) {
     const [a, b] = p.split("/");
     return `${a}/${b}`;
-  }
-  if (p.startsWith("app/")) {
-    const [a, b] = p.split("/");
-    return `${a}/${b ?? ""}`.replace(/\/$/, "");
   }
   const parts = p.split("/");
   return parts.length >= 2 ? `${parts[0]}/${parts[1]}` : parts[0] ?? "root";

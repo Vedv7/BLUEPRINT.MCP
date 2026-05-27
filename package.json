@@ -4,6 +4,7 @@
   "private": false,
   "type": "module",
   "description": "Blueprint MCP: architectural guardrails for AI coding agents",
+  "files": ["dist", "bin", "python", "docs"],
   "bin": {
     "blueprint": "./bin/blueprint.mjs"
   },
