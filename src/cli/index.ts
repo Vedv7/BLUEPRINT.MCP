@@ -303,7 +303,7 @@ async function runVerify(symbolName: string, proposedFilePath: string, intent: s
 }
 
 const program = new Command();
-program.name("blueprint").description("Blueprint MCP: architectural guardrails for AI coding agents").version("0.2.1");
+program.name("blueprint").description("Blueprint MCP: architectural guardrails for AI coding agents").version("0.2.2");
 
 program.command("init").description("Create blueprint.config.json").action(runInit);
 program

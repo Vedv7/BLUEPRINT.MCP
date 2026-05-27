@@ -12,7 +12,7 @@ import { createRuntime } from "../runtime/createRuntime.js";
 
 export async function startMcpServer(opts: { repoRoot: string }) {
   const runtime = createRuntime({ repoRoot: opts.repoRoot });
-  const server = new McpServer({ name: "blueprint", version: "0.2.1" });
+  const server = new McpServer({ name: "blueprint", version: "0.2.2" });
 
   server.tool(
     "scan_repo",

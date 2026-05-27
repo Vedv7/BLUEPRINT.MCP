@@ -26,12 +26,12 @@ jobs:
       - name: Build Blueprint
         run: npm run build
 
-      - name: Run Blueprint scan
-        run: node dist/cli/index.js scan
+      - name: Blueprint validate (strict CI)
+        run: node dist/cli/index.js validate --strict
         env:
           BLUEPRINT_EMBED_MOCK: "1"
 
-      - name: Collect Blueprint outputs
+      - name: Collect Blueprint outputs for PR comment
         run: |
           node dist/cli/index.js doctor > blueprint-doctor.txt
           node dist/cli/index.js check --format=markdown > blueprint-check.md
