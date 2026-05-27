@@ -26,6 +26,28 @@ node dist/cli/index.js scan
 node dist/cli/index.js mcp
 ```
 
+## Validate (one command)
+
+Run the common local/CI workflow without chaining seven commands:
+
+```bash
+npx blueprint validate
+```
+
+Runs, in order: `scan` → `doctor` → `check --ci` → `adr check --ci` → `snapshot` (single index pass).
+
+For architecture visibility (report, graph, domains, domain-health):
+
+```bash
+npx blueprint validate --full
+```
+
+Strict CI gates (fail on warnings):
+
+```bash
+npx blueprint validate --strict
+```
+
 ## Cursor integration rule
 
 Copy the agent rule into your editor (e.g. Cursor → `.cursor/rules/blueprint.mdc`):

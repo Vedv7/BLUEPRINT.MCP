@@ -2,25 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { Command } from "commander";
 import { loadConfig } from "../config/loadConfig.js";
-import { extractSymbols } from "../parser/extractSymbols.js";
-import { openDb } from "../db/db.js";
-import { saveSymbols } from "../indexer/saveSymbols.js";
-import { findDuplicateCandidates, findDuplicateForProposedSymbol } from "../engine/duplicateDetector.js";
-import { verifyPlacement } from "../engine/placementEngine.js";
-import { suggestImportForSymbol } from "../engine/importSuggester.js";
-import { startMcpServer } from "../mcp/server.js";
-import { generateBlueprintReport } from "../report/generateReport.js";
-import { formatCheckOutput, runBlueprintCheck } from "../check/runCheck.js";
-import { formatInferredPoliciesOutput, inferPoliciesFromRepo } from "../rules/inferRules.js";
-import { buildArchitectureGraph, formatArchitectureGraphOutput } from "../graph/buildArchitectureGraph.js";
-import { scanAndIndexRepo } from "../indexer/scanAndIndex.js";
-import { analyzeRepoCoverage, formatDoctorReport } from "../coverage/repoCoverage.js";
-import { writeBlueprintMemorySnapshot } from "../snapshot/generateSnapshot.js";
-import { buildDomainModel } from "../domain/buildDomainModel.js";
-import {
-  formatDomainArchitectureOutput,
-  formatDomainHealthMarkdown
-} from "../engines/domainIntelligence.js";
+import { formatDoctorReport } from "../coverage/repoCoverage.js";
 import {
   buildDecisionMemory,
   createArchitecturalDecision,
@@ -29,44 +11,17 @@ import {
   loadArchitecturalDecisions
 } from "../decisions/store.js";
 import { ensureDecisionsDir } from "../decisions/paths.js";
-import {
-  checkDecisionsAgainstRepo,
-  formatDecisionCheckMarkdown,
-  formatDecisionCheckOutput
-} from "../engines/decisionGovernance.js";
 import { formatAdrSuggestionsOutput, suggestAdrs } from "../engines/adrSuggest.js";
-import { buildArchitectureIr } from "../ir/buildArchitectureIr.js";
-import { applyStrictConfig, shouldFailCi } from "./ciExit.js";
+import { createRuntime } from "../runtime/createRuntime.js";
+import { startMcpServer } from "../mcp/server.js";
+import { runValidate } from "./runValidate.js";
 
 function repoRootFromCwd() {
   return process.cwd();
 }
 
-async function runScan() {
-  const repoRoot = repoRootFromCwd();
-  const result = await scanAndIndexRepo(repoRoot);
-  process.stdout.write(
-    JSON.stringify(
-      {
-        filesScanned: result.filesScanned,
-        symbolsIndexed: result.symbolsIndexed,
-        embeddings: result.embeddings
-      },
-      null,
-      2
-    ) + "\n"
-  );
-}
-
-async function scanAndIndex(repoRoot: string) {
-  const result = await scanAndIndexRepo(repoRoot);
-  return {
-    config: result.config,
-    ir: result.ir,
-    filesScanned: result.filesScanned,
-    symbolsIndexed: result.symbolsIndexed,
-    embeddings: result.embeddings
-  };
+function runtime() {
+  return createRuntime({ repoRoot: repoRootFromCwd() });
 }
 
 function runInit() {
@@ -77,7 +32,6 @@ function runInit() {
     return;
   }
   const templatePath = path.join(path.dirname(new URL(import.meta.url).pathname), "../../blueprint.config.json");
-  // Fallback: write minimal template if bundler path resolution differs.
   const template = fs.existsSync(templatePath)
     ? fs.readFileSync(templatePath, "utf8")
     : JSON.stringify(loadConfig(repoRoot), null, 2);
@@ -87,36 +41,49 @@ function runInit() {
   process.stdout.write("Created .blueprint/decisions/ for architectural decision memory\n");
 }
 
+async function runScan() {
+  const scan = await runtime().scan();
+  process.stdout.write(
+    JSON.stringify(
+      {
+        filesScanned: scan.filesScanned,
+        symbolsIndexed: scan.symbolsIndexed,
+        embeddings: scan.embeddings
+      },
+      null,
+      2
+    ) + "\n"
+  );
+}
+
 async function runDoctor(opts?: { json?: boolean }) {
-  const repoRoot = repoRootFromCwd();
-  const config = loadConfig(repoRoot);
-  const dbAbs = path.join(repoRoot, config.dbPath);
-  const configPath = path.join(repoRoot, "blueprint.config.json");
-  const coverage = await analyzeRepoCoverage(repoRoot, config);
-  const text = formatDoctorReport(coverage, {
-    configPresent: fs.existsSync(configPath),
-    dbPresent: fs.existsSync(dbAbs),
-    framework: config.framework
-  });
-  process.stdout.write(text + "\n");
+  const rt = runtime();
+  const doctor = await rt.doctor();
+  process.stdout.write(
+    formatDoctorReport(doctor.coverage, {
+      configPresent: doctor.configPresent,
+      dbPresent: doctor.dbPresent,
+      framework: doctor.framework
+    }) + "\n"
+  );
   if (opts?.json) {
     process.stdout.write(
       JSON.stringify(
         {
-          repoRoot,
-          configPresent: fs.existsSync(configPath),
-          dbPresent: fs.existsSync(dbAbs),
-          framework: config.framework,
-          filesIndexed: coverage.ir.files.length,
+          repoRoot: rt.repoRoot,
+          configPresent: doctor.configPresent,
+          dbPresent: doctor.dbPresent,
+          framework: doctor.framework,
+          filesIndexed: doctor.coverage.ir.files.length,
           coverage: {
-            parsedJsTsFiles: coverage.parsedJsTsFiles,
-            eligibleJsTsFiles: coverage.eligibleJsTsFiles,
-            parsedPythonFiles: coverage.parsedPythonFiles,
-            eligiblePythonFiles: coverage.eligiblePythonFiles,
-            parsedJavaFiles: coverage.parsedJavaFiles,
-            eligibleJavaFiles: coverage.eligibleJavaFiles,
-            coverageRatio: coverage.coverageRatio,
-            languages: coverage.languages
+            parsedJsTsFiles: doctor.coverage.parsedJsTsFiles,
+            eligibleJsTsFiles: doctor.coverage.eligibleJsTsFiles,
+            parsedPythonFiles: doctor.coverage.parsedPythonFiles,
+            eligiblePythonFiles: doctor.coverage.eligiblePythonFiles,
+            parsedJavaFiles: doctor.coverage.parsedJavaFiles,
+            eligibleJavaFiles: doctor.coverage.eligibleJavaFiles,
+            coverageRatio: doctor.coverage.coverageRatio,
+            languages: doctor.coverage.languages
           }
         },
         null,
@@ -127,47 +94,34 @@ async function runDoctor(opts?: { json?: boolean }) {
 }
 
 async function runMcp() {
-  const repoRoot = repoRootFromCwd();
-  await startMcpServer({ repoRoot });
+  await startMcpServer({ repoRoot: repoRootFromCwd() });
 }
 
 async function runReport() {
-  const repoRoot = repoRootFromCwd();
-  const { config, filesScanned, symbolsIndexed, ir } = await scanAndIndex(repoRoot);
-  const report = await generateBlueprintReport({
-    repoRoot,
-    config,
-    filesScanned,
-    symbolsIndexed,
-    modules: ir.modules,
-    ir
-  });
+  const report = await runtime().report();
   process.stdout.write(report.text + "\n");
 }
 
 async function runSnapshot() {
-  const repoRoot = repoRootFromCwd();
-  const { config, ir } = await scanAndIndex(repoRoot);
-  const result = await writeBlueprintMemorySnapshot(repoRoot, ir, config);
-  process.stdout.write(JSON.stringify({ path: result.path, adapters: result.snapshot.adapters }, null, 2) + "\n");
+  const snap = await runtime().snapshot();
+  process.stdout.write(JSON.stringify({ path: snap.path, adapters: snap.adapters }, null, 2) + "\n");
 }
 
 async function runCheck(opts: { ci?: boolean; strict?: boolean; format?: string }) {
-  const repoRoot = repoRootFromCwd();
-  const { config: baseConfig, ir, filesScanned, symbolsIndexed } = await scanAndIndex(repoRoot);
-  const config = applyStrictConfig(baseConfig, opts.strict);
-  const result = await runBlueprintCheck({ repoRoot, config, ir });
-  const outputFormat = opts.format === "markdown" ? "markdown" : "text";
-  process.stdout.write(formatCheckOutput(result, { format: outputFormat }) + "\n");
+  const check = await runtime().check({
+    strict: opts.strict,
+    format: opts.format === "markdown" ? "markdown" : "text"
+  });
+  process.stdout.write(check.text + "\n");
 
   if (!opts.ci) {
     process.stdout.write(
       JSON.stringify(
         {
-          filesScanned,
-          symbolsIndexed,
-          violations: result.violations.length,
-          warnings: result.warnings.length,
+          filesScanned: check.filesScanned,
+          symbolsIndexed: check.symbolsIndexed,
+          violations: check.result.violations.length,
+          warnings: check.result.warnings.length,
           strict: Boolean(opts.strict)
         },
         null,
@@ -176,26 +130,24 @@ async function runCheck(opts: { ci?: boolean; strict?: boolean; format?: string 
     );
   } else {
     process.stdout.write(
-      `CI: violations=${result.violations.length} warnings=${result.warnings.length} strict=${Boolean(opts.strict)}\n`
+      `CI: violations=${check.ci.violations} warnings=${check.ci.warnings} strict=${check.ci.strict}\n`
     );
   }
 
-  if (shouldFailCi({ violations: result.violations.length, warnings: result.warnings.length }, opts)) {
+  if (opts.ci && check.ci.shouldFail) {
     process.exitCode = 1;
   }
 }
 
 async function runInferRules() {
-  const repoRoot = repoRootFromCwd();
-  const config = loadConfig(repoRoot);
-  const inferred = await inferPoliciesFromRepo({ repoRoot, config });
-  process.stdout.write(formatInferredPoliciesOutput(inferred) + "\n");
+  const inferred = await runtime().inferRules();
+  process.stdout.write(inferred.text + "\n");
   process.stdout.write(
     JSON.stringify(
       {
         policies: {
-          forbiddenImports: inferred.forbiddenImports,
-          requiredPlacement: inferred.requiredPlacement
+          forbiddenImports: inferred.policies.forbiddenImports,
+          requiredPlacement: inferred.policies.requiredPlacement
         }
       },
       null,
@@ -205,40 +157,37 @@ async function runInferRules() {
 }
 
 async function runGraph() {
-  const repoRoot = repoRootFromCwd();
-  const { config, ir } = await scanAndIndex(repoRoot);
-  const graph = await buildArchitectureGraph({ repoRoot, config, ir });
-  process.stdout.write(formatArchitectureGraphOutput(graph) + "\n");
+  const graph = await runtime().graph();
+  process.stdout.write(graph.text + "\n");
 }
 
 async function runDomains() {
-  const repoRoot = repoRootFromCwd();
-  const config = loadConfig(repoRoot);
-  const model = await buildDomainModel({ repoRoot, config });
-  process.stdout.write(formatDomainArchitectureOutput(model) + "\n");
+  const domains = await runtime().domains();
+  process.stdout.write(domains.text + "\n");
 }
 
 async function runDomainHealth(opts: { format?: string }) {
-  const repoRoot = repoRootFromCwd();
-  const config = loadConfig(repoRoot);
-  const model = await buildDomainModel({ repoRoot, config });
-  const output =
-    opts.format === "markdown" ? formatDomainHealthMarkdown(model) : formatDomainArchitectureOutput(model);
-  process.stdout.write(output + "\n");
-  process.stdout.write(JSON.stringify(model.health, null, 2) + "\n");
+  const rt = runtime();
+  if (opts.format === "markdown") {
+    const health = await rt.domainHealth();
+    process.stdout.write(health.text + "\n");
+    process.stdout.write(JSON.stringify(health.health, null, 2) + "\n");
+  } else {
+    const domains = await rt.domains();
+    process.stdout.write(domains.text + "\n");
+    const health = await rt.domainHealth({ useSession: true });
+    process.stdout.write(JSON.stringify(health.health, null, 2) + "\n");
+  }
 }
 
 async function runDomainCheck() {
-  const repoRoot = repoRootFromCwd();
-  const config = loadConfig(repoRoot);
-  const model = await buildDomainModel({ repoRoot, config });
-  process.stdout.write(formatDomainArchitectureOutput(model) + "\n");
-  if (model.violations.length > 0) process.exitCode = 1;
+  const domains = await runtime().domains();
+  process.stdout.write(domains.text + "\n");
+  if (domains.model.violations.length > 0) process.exitCode = 1;
 }
 
 async function runAdrList() {
-  const repoRoot = repoRootFromCwd();
-  const decisions = loadArchitecturalDecisions(repoRoot);
+  const decisions = loadArchitecturalDecisions(repoRootFromCwd());
   process.stdout.write(formatDecisionList(decisions) + "\n");
 }
 
@@ -266,7 +215,7 @@ async function runAdrNew(opts: {
   domain?: string[];
 }) {
   const repoRoot = repoRootFromCwd();
-  const { path, decision } = createArchitecturalDecision(repoRoot, {
+  const { path: adrPath, decision } = createArchitecturalDecision(repoRoot, {
     title: opts.title,
     decision: opts.decision,
     rationale: opts.rationale,
@@ -276,88 +225,76 @@ async function runAdrNew(opts: {
     rejectedPatterns: opts.rejected,
     domains: opts.domain
   });
-  process.stdout.write(`Wrote ${path}\n`);
+  process.stdout.write(`Wrote ${adrPath}\n`);
   process.stdout.write(formatDecisionDetail(decision) + "\n");
 }
 
 async function runAdrCheck(opts?: { ci?: boolean; strict?: boolean; format?: string }) {
-  const repoRoot = repoRootFromCwd();
-  const config = loadConfig(repoRoot);
-  const ir = await buildArchitectureIr(repoRoot, config);
-  const memory = buildDecisionMemory(repoRoot);
-  const result = checkDecisionsAgainstRepo(ir, config, memory);
-  const output =
-    opts?.format === "markdown" ? formatDecisionCheckMarkdown(result) : formatDecisionCheckOutput(result);
-  process.stdout.write(output + "\n");
+  const adr = await runtime().adrCheck({
+    strict: opts?.strict,
+    format: opts?.format === "markdown" ? "markdown" : "text"
+  });
+  process.stdout.write(adr.text + "\n");
 
   if (opts?.ci) {
     process.stdout.write(
-      `CI: violations=${result.violations.length} warnings=${result.warnings.length} strict=${Boolean(opts?.strict)}\n`
+      `CI: violations=${adr.ci.violations} warnings=${adr.ci.warnings} strict=${adr.ci.strict}\n`
     );
   }
 
-  if (shouldFailCi({ violations: result.violations.length, warnings: result.warnings.length }, opts ?? {})) {
+  if (opts?.ci && adr.ci.shouldFail) {
     process.exitCode = 1;
   }
 }
 
 async function runAdrSuggest() {
-  const repoRoot = repoRootFromCwd();
-  const config = loadConfig(repoRoot);
-  const ir = await buildArchitectureIr(repoRoot, config);
-  const memory = buildDecisionMemory(repoRoot);
-  const suggestions = suggestAdrs(ir, memory);
+  const rt = runtime();
+  const scan = await rt.scan();
+  const memory = buildDecisionMemory(rt.repoRoot);
+  const suggestions = suggestAdrs(scan.ir, memory);
   process.stdout.write(formatAdrSuggestionsOutput(suggestions) + "\n");
 }
 
 async function runFindDuplicates(symbolName: string, limit = 5, proposedFilePath?: string, intent?: string) {
-  const repoRoot = repoRootFromCwd();
-  const config = loadConfig(repoRoot);
-  const dbAbs = path.join(repoRoot, config.dbPath);
-  const db = await openDb(dbAbs);
-  const candidates = await findDuplicateCandidates(db, symbolName, limit, proposedFilePath, intent, {
-    pathAliases: config.pathAliases
-  });
-  await db.close();
-  process.stdout.write(JSON.stringify({ symbolName, proposedFilePath, intent, candidates }, null, 2) + "\n");
-}
-
-async function runSuggestImport(symbolName: string) {
-  const repoRoot = repoRootFromCwd();
-  const config = loadConfig(repoRoot);
-  const dbAbs = path.join(repoRoot, config.dbPath);
-  const db = await openDb(dbAbs);
-  const suggestion = await suggestImportForSymbol(db, symbolName, { pathAliases: config.pathAliases });
-  await db.close();
-  process.stdout.write(JSON.stringify({ symbolName, suggestion }, null, 2) + "\n");
-}
-
-async function runVerify(symbolName: string, proposedFilePath: string, intent: string) {
-  const repoRoot = repoRootFromCwd();
-  const config = loadConfig(repoRoot);
-  const dbAbs = path.join(repoRoot, config.dbPath);
-  const db = await openDb(dbAbs);
-  const dup = await findDuplicateForProposedSymbol(db, symbolName, proposedFilePath, intent, {
-    pathAliases: config.pathAliases
-  });
-  await db.close();
-
-  const placement = verifyPlacement({
+  const found = await runtime().findExistingAbstractions({
+    proposedSymbolName: symbolName,
     proposedFilePath,
     intent,
-    placementRules: config.placementRules
+    limit
   });
-  const severity = dup.duplicateRisk === "high" || !placement.ok ? "high" : dup.duplicateRisk === "medium" ? "medium" : "low";
-  const decision = config.enforcementMode === "enforce" && severity === "high" ? "BLOCKED" : severity === "low" ? "ALLOW" : "ADVISORY";
-
   process.stdout.write(
     JSON.stringify(
       {
-        decision,
-        mode: config.enforcementMode,
-        severity,
-        duplicate: dup,
-        placement
+        symbolName,
+        proposedFilePath,
+        intent,
+        candidates: found.candidates
+      },
+      null,
+      2
+    ) + "\n"
+  );
+}
+
+async function runSuggestImport(symbolName: string) {
+  const result = await runtime().suggestImportReuse(symbolName);
+  process.stdout.write(JSON.stringify({ symbolName, suggestion: result.suggestion }, null, 2) + "\n");
+}
+
+async function runVerify(symbolName: string, proposedFilePath: string, intent: string) {
+  const advisory = await runtime().getAgentAdvisory({
+    proposedSymbolName: symbolName,
+    proposedFilePath,
+    intent
+  });
+  process.stdout.write(
+    JSON.stringify(
+      {
+        decision: advisory.decision,
+        mode: advisory.mode,
+        severity: advisory.severity,
+        duplicate: advisory.duplicate,
+        placement: advisory.placement
       },
       null,
       2
@@ -366,9 +303,17 @@ async function runVerify(symbolName: string, proposedFilePath: string, intent: s
 }
 
 const program = new Command();
-program.name("blueprint").description("Blueprint MCP: architectural guardrails for AI coding agents").version("0.2.0");
+program.name("blueprint").description("Blueprint MCP: architectural guardrails for AI coding agents").version("0.2.1");
 
 program.command("init").description("Create blueprint.config.json").action(runInit);
+program
+  .command("validate")
+  .description("Run the common workflow: scan, doctor, check --ci, adr check --ci, snapshot")
+  .option("--full", "Also run report, graph, domains, and domain-health")
+  .option("--strict", "CI strict gate: fail on policy/ADR warnings too")
+  .action(async (opts: { full?: boolean; strict?: boolean }) => {
+    await runValidate(opts);
+  });
 program.command("scan").description("Scan repo and index exported symbols").action(() => runScan());
 program
   .command("doctor")
@@ -443,10 +388,7 @@ adr
   .option("--format <format>", "text or markdown", "text")
   .action((opts: { ci?: boolean; strict?: boolean; format?: string }) => runAdrCheck(opts));
 
-adr
-  .command("suggest")
-  .description("Suggest new ADRs from repeated architectural patterns")
-  .action(() => runAdrSuggest());
+adr.command("suggest").description("Suggest new ADRs from repeated architectural patterns").action(() => runAdrSuggest());
 
 program
   .command("decide")
@@ -466,10 +408,7 @@ program
     domain: string[];
   }) => runAdrNew(opts));
 
-program
-  .command("snapshot")
-  .description("Write blueprint.memory.json architecture snapshot for agents")
-  .action(() => runSnapshot());
+program.command("snapshot").description("Write blueprint.memory.json architecture snapshot for agents").action(() => runSnapshot());
 program
   .command("find-duplicates")
   .description("Find likely duplicate symbols")
@@ -494,4 +433,3 @@ program
   .action((symbolName: string, proposedFilePath: string, intent: string) => runVerify(symbolName, proposedFilePath, intent));
 
 program.parse(process.argv);
-

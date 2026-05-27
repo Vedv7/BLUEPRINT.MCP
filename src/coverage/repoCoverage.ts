@@ -148,7 +148,11 @@ export function formatDoctorReport(coverage: RepoCoverageReport, opts: { configP
   return lines.join("\n");
 }
 
-export async function analyzeRepoCoverage(repoRoot: string, config: BlueprintConfig): Promise<RepoCoverageReport> {
+export async function analyzeRepoCoverage(
+  repoRoot: string,
+  config: BlueprintConfig,
+  opts?: { ir?: ArchitectureIR }
+): Promise<RepoCoverageReport> {
   const allFiles = walkRepoFiles(repoRoot, config.root);
   const repoLangCounts = countByLanguage(allFiles);
 
@@ -173,17 +177,19 @@ export async function analyzeRepoCoverage(repoRoot: string, config: BlueprintCon
   });
 
   const shouldBuild = eligibleJsTs.length + eligiblePython.length + eligibleJava.length > 0;
-  const ir = shouldBuild
-    ? await buildArchitectureIr(repoRoot, config)
-    : {
-        repoRoot,
-        files: [],
-        symbols: [],
-        imports: [],
-        modules: [],
-        boundaries: [],
-        adapters: [] as ArchitectureIR["adapters"]
-      };
+  const ir =
+    opts?.ir ??
+    (shouldBuild
+      ? await buildArchitectureIr(repoRoot, config)
+      : {
+          repoRoot,
+          files: [],
+          symbols: [],
+          imports: [],
+          modules: [],
+          boundaries: [],
+          adapters: [] as ArchitectureIR["adapters"]
+        });
 
   const parsedByDialect = countParsedByDialect(ir.files);
   const parsedPythonFiles = ir.files.filter((f) => f.language === "python").length;

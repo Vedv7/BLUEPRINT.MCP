@@ -1,108 +1,18 @@
-import path from "node:path";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { loadConfig } from "../config/loadConfig.js";
-import { openDb } from "../db/db.js";
-import { indexSymbolEmbeddings } from "../embeddings/indexSymbols.js";
-import { buildArchitectureIr } from "../ir/buildArchitectureIr.js";
-import { persistArchitectureIr } from "../ir/persistIr.js";
-import { formatArchitectureGraphOutput } from "../graph/buildArchitectureGraph.js";
-import { buildArchitectureGraphFromIr } from "../engines/architectureGraph.js";
-import { buildDomainModel } from "../domain/buildDomainModel.js";
-import {
-  buildDomainAdvisory,
-  buildDomainArchitecture,
-  domainAdvisoryText,
-  filterCandidatesByDomain,
-  formatDomainArchitectureOutput,
-  formatDomainHealthMarkdown
-} from "../engines/domainIntelligence.js";
 import {
   buildDecisionMemory,
   createArchitecturalDecision,
   formatDecisionDetail,
   formatDecisionList
 } from "../decisions/store.js";
-import {
-  checkDecisionsAgainstRepo,
-  decisionContinuityAdvisory,
-  explainArchitecturalDecisions,
-  formatDecisionCheckOutput
-} from "../engines/decisionGovernance.js";
-import { findDuplicateCandidates, findDuplicateForProposedSymbol } from "../engine/duplicateDetector.js";
-import { suggestImportForSymbol } from "../engine/importSuggester.js";
-import { verifyPlacement } from "../engine/placementEngine.js";
-import type { ConfidenceLevel } from "../engine/duplicateDetector.js";
-
-function advisoryDecision(opts: {
-  enforcementMode: "advisory" | "enforce";
-  duplicateRisk: ConfidenceLevel;
-  placementOk: boolean;
-}) {
-  const severity = opts.duplicateRisk === "high" || !opts.placementOk ? "high" : opts.duplicateRisk === "medium" ? "medium" : "low";
-  if (opts.enforcementMode === "enforce" && severity === "high") {
-    return { decision: "BLOCKED", mode: "enforce" as const, severity };
-  }
-  if (severity === "low") return { decision: "ALLOW", mode: opts.enforcementMode, severity };
-  return { decision: "ADVISORY", mode: opts.enforcementMode, severity };
-}
-
-function toLabel(risk: ConfidenceLevel) {
-  return risk.toUpperCase();
-}
-
-function advisoryTextForAbstraction(result: {
-  file?: string;
-  symbol?: string;
-  suggestedImport?: string;
-  confidence: ConfidenceLevel;
-  action: string;
-  reasons?: string[];
-  explanation?: string;
-}) {
-  const existing = result.file && result.symbol ? `${result.file} -> ${result.symbol}()` : "No strong existing abstraction match.";
-  const importLine = result.suggestedImport ?? "No import suggestion.";
-  const lines = [
-    "BLUEPRINT ADVISORY",
-    "",
-    "Existing abstraction found:",
-    existing,
-    "",
-    "Suggested import:",
-    importLine,
-    "",
-    `Confidence: ${toLabel(result.confidence)}`,
-    `Action: ${result.action}`
-  ];
-  if (result.reasons?.length) {
-    lines.push("", "Reasons:");
-    result.reasons.forEach((r) => lines.push(`- ${r}`));
-  }
-  if (result.explanation) {
-    lines.push("", result.explanation);
-  }
-  return lines.join("\n");
-}
-
-function placementTextForAdvisory(placement: { ok: boolean; suggestedPath?: string; reason?: string }) {
-  return [
-    "BLUEPRINT ADVISORY",
-    "",
-    "Placement guidance:",
-    placement.ok ? "Current path matches repository conventions." : `Suggested path: ${placement.suggestedPath}`,
-    "",
-    `Reason: ${placement.reason ?? "No issue detected."}`,
-    `Action: ${placement.ok ? "Keep current path." : "Use suggested path."}`
-  ].join("\n");
-}
+import { placementTextForAdvisory } from "../runtime/formatAdvisory.js";
+import { createRuntime } from "../runtime/createRuntime.js";
 
 export async function startMcpServer(opts: { repoRoot: string }) {
-  const { repoRoot } = opts;
-  const config = loadConfig(repoRoot);
-  const dbAbs = path.join(repoRoot, config.dbPath);
-
-  const server = new McpServer({ name: "blueprint", version: "0.2.0" });
+  const runtime = createRuntime({ repoRoot: opts.repoRoot });
+  const server = new McpServer({ name: "blueprint", version: "0.2.1" });
 
   server.tool(
     "scan_repo",
@@ -111,23 +21,12 @@ export async function startMcpServer(opts: { repoRoot: string }) {
       exportedOnly: z.boolean().default(true).describe("If true, index only exported symbols.")
     },
     async ({ exportedOnly }) => {
-      const ir = await buildArchitectureIr(repoRoot, config, { exportedOnly });
-      const db = await openDb(dbAbs);
-      await persistArchitectureIr(db, ir);
-      const embeddingStats = await indexSymbolEmbeddings({
-        repoRoot,
-        config,
-        db,
-        scannedFilesRel: ir.files.map((f) => f.path),
-        forceMock: process.env.BLUEPRINT_EMBED_MOCK === "1"
-      });
-      await db.close();
-
+      const scan = await runtime.scan({ exportedOnly, refresh: true });
       const payload = {
-        filesScanned: ir.files.length,
-        symbolsIndexed: ir.symbols.length,
-        adapters: ir.adapters,
-        embeddings: embeddingStats
+        filesScanned: scan.filesScanned,
+        symbolsIndexed: scan.symbolsIndexed,
+        adapters: scan.adapters,
+        embeddings: scan.embeddings
       };
       return {
         content: [{ type: "text", text: JSON.stringify(payload, null, 2) }],
@@ -146,62 +45,22 @@ export async function startMcpServer(opts: { repoRoot: string }) {
       limit: z.number().int().min(1).max(20).default(5).describe("Maximum number of ranked candidates to return.")
     },
     async ({ proposedSymbolName, proposedFilePath, intent, limit }) => {
-      const db = await openDb(dbAbs);
-      let candidates = await findDuplicateCandidates(db, proposedSymbolName, limit, proposedFilePath, intent, {
-        pathAliases: config.pathAliases,
-        config,
-        repoRoot
-      });
-      await db.close();
-
-      if (proposedFilePath) {
-        candidates = filterCandidatesByDomain(candidates, proposedFilePath, config);
-      }
-
-      const domainModel = proposedFilePath
-        ? buildDomainArchitecture(await buildArchitectureIr(repoRoot, config), config)
-        : null;
-      const domainAdvisory =
-        proposedFilePath && domainModel
-          ? buildDomainAdvisory({
-              proposedFilePath,
-              proposedSymbolName,
-              intent,
-              model: domainModel,
-              config
-            })
-          : null;
-
-      const payload = {
+      const result = await runtime.findExistingAbstractions({
         proposedSymbolName,
         proposedFilePath,
         intent,
-        confidence: candidates[0]?.duplicateRisk ?? "low",
-        candidates,
-        domain: domainAdvisory
-      };
-      const best = candidates[0];
-      const decisionMemory = buildDecisionMemory(repoRoot);
-      const decisionText = decisionContinuityAdvisory(decisionMemory, {
-        filePath: proposedFilePath,
-        intent,
-        domain: domainAdvisory?.domain
+        limit
       });
-
-      const blocks = [
-        decisionText,
-        domainAdvisory ? domainAdvisoryText(domainAdvisory) : null,
-        advisoryTextForAbstraction({
-          file: best?.file,
-          symbol: best?.symbol,
-          suggestedImport: best?.suggestedImport,
-          confidence: payload.confidence,
-          action: best ? "Prefer reuse/import over creating duplicate code." : "Proceed with implementation.",
-          reasons: best?.reasons
-        })
-      ].filter(Boolean);
+      const payload = {
+        proposedSymbolName: result.proposedSymbolName,
+        proposedFilePath: result.proposedFilePath,
+        intent: result.intent,
+        confidence: result.confidence,
+        candidates: result.candidates,
+        domain: result.domain
+      };
       return {
-        content: [{ type: "text", text: blocks.join("\n\n") }],
+        content: [{ type: "text", text: result.text }],
         structuredContent: payload
       };
     }
@@ -214,25 +73,10 @@ export async function startMcpServer(opts: { repoRoot: string }) {
       symbolName: z.string().describe("Desired symbol name to import, e.g. formatCurrency")
     },
     async ({ symbolName }) => {
-      const db = await openDb(dbAbs);
-      const suggestion = await suggestImportForSymbol(db, symbolName, { pathAliases: config.pathAliases });
-      await db.close();
-
-      const payload = { symbolName, suggestion };
+      const result = await runtime.suggestImportReuse(symbolName);
       return {
-        content: [
-          {
-            type: "text",
-            text: advisoryTextForAbstraction({
-              file: suggestion.file ?? undefined,
-              symbol: suggestion.symbol,
-              suggestedImport: suggestion.suggestedImport ?? undefined,
-              confidence: suggestion.strategy === "exact" ? "high" : suggestion.strategy === "nearest" ? "medium" : "none",
-              action: suggestion.suggestedImport ? "Reuse the suggested import." : "No reuse suggestion found."
-            })
-          }
-        ],
-        structuredContent: payload
+        content: [{ type: "text", text: result.text }],
+        structuredContent: { symbolName: result.symbolName, suggestion: result.suggestion }
       };
     }
   );
@@ -242,11 +86,10 @@ export async function startMcpServer(opts: { repoRoot: string }) {
     "Explain module boundaries, dependency flows, and risky imports in the repository.",
     {},
     async () => {
-      const ir = await buildArchitectureIr(repoRoot, config);
-      const graph = buildArchitectureGraphFromIr(ir, config);
+      const graph = await runtime.graph();
       return {
-        content: [{ type: "text", text: formatArchitectureGraphOutput(graph) }],
-        structuredContent: graph
+        content: [{ type: "text", text: graph.text }],
+        structuredContent: graph.graph
       };
     }
   );
@@ -256,10 +99,10 @@ export async function startMcpServer(opts: { repoRoot: string }) {
     "Infer business domains (payments, auth, …), ownership stacks, and cross-domain risks.",
     {},
     async () => {
-      const model = await buildDomainModel({ repoRoot, config });
+      const domains = await runtime.domains();
       return {
-        content: [{ type: "text", text: formatDomainArchitectureOutput(model) }],
-        structuredContent: model
+        content: [{ type: "text", text: domains.text }],
+        structuredContent: domains.model
       };
     }
   );
@@ -269,15 +112,10 @@ export async function startMcpServer(opts: { repoRoot: string }) {
     "Architecture health score from domain governance (violations, drift, boundary risks).",
     {},
     async () => {
-      const model = await buildDomainModel({ repoRoot, config });
+      const health = await runtime.domainHealth();
       return {
-        content: [
-          {
-            type: "text",
-            text: `${formatDomainHealthMarkdown(model)}\n\n${formatDomainArchitectureOutput(model)}`
-          }
-        ],
-        structuredContent: model
+        content: [{ type: "text", text: health.text }],
+        structuredContent: health.model
       };
     }
   );
@@ -287,17 +125,21 @@ export async function startMcpServer(opts: { repoRoot: string }) {
     "Domain boundary violations and drift (analytics→auth, payment internals, validator sprawl).",
     {},
     async () => {
-      const model = await buildDomainModel({ repoRoot, config });
+      const domains = await runtime.domains();
       const focus = [
         "Domain violations:",
-        ...model.violations.map((v) => `- [${v.severity}] ${v.message}`),
+        ...domains.model.violations.map((v) => `- [${v.severity}] ${v.message}`),
         "",
         "Drift:",
-        ...model.drift.map((d) => `- [${d.severity}] ${d.message}`)
+        ...domains.model.drift.map((d) => `- [${d.severity}] ${d.message}`)
       ].join("\n");
       return {
         content: [{ type: "text", text: focus }],
-        structuredContent: { violations: model.violations, drift: model.drift, health: model.health }
+        structuredContent: {
+          violations: domains.model.violations,
+          drift: domains.model.drift,
+          health: domains.model.health
+        }
       };
     }
   );
@@ -310,21 +152,18 @@ export async function startMcpServer(opts: { repoRoot: string }) {
       intent: z.string().describe("Short natural-language intent, e.g. utility to format payment amounts")
     },
     async ({ proposedFilePath, intent }) => {
-      const placement = verifyPlacement({
+      const advisory = await runtime.getAgentAdvisory({
+        proposedSymbolName: "_placement_probe_",
         proposedFilePath,
-        intent,
-        placementRules: config.placementRules
+        intent
       });
-
+      const placement = advisory.placement;
       const payload = {
-        mode: config.enforcementMode,
-        framework: config.framework,
+        mode: runtime.config.enforcementMode,
+        framework: runtime.config.framework,
         placement,
-        recommendation: placement.ok
-          ? "placement looks good"
-          : `Suggested location: ${placement.suggestedPath}`
+        recommendation: placement.ok ? "placement looks good" : `Suggested location: ${placement.suggestedPath}`
       };
-
       return {
         content: [{ type: "text", text: placementTextForAdvisory(placement) }],
         structuredContent: payload
@@ -332,7 +171,6 @@ export async function startMcpServer(opts: { repoRoot: string }) {
     }
   );
 
-  // Backward-compatible combined tool. Kept for migration.
   server.tool(
     "verify_and_place_code",
     "Combined duplicate + placement check. Advisory-first by default; blocks only in enforce mode.",
@@ -342,87 +180,22 @@ export async function startMcpServer(opts: { repoRoot: string }) {
       intent: z.string().describe("Short natural-language intent, e.g. 'utility to format payment amounts'")
     },
     async ({ proposedFilePath, proposedSymbolName, intent }) => {
-      const decisionMemory = buildDecisionMemory(repoRoot);
-      const decisionText = decisionContinuityAdvisory(decisionMemory, {
-        filePath: proposedFilePath,
-        intent
-      });
-
-      const ir = await buildArchitectureIr(repoRoot, config);
-      const domainModel = buildDomainArchitecture(ir, config);
-      const domainAdvisory = buildDomainAdvisory({
+      const advisory = await runtime.getAgentAdvisory({
         proposedFilePath,
         proposedSymbolName,
-        intent,
-        model: domainModel,
-        config
+        intent
       });
-
-      const db = await openDb(dbAbs);
-      const dup = await findDuplicateForProposedSymbol(db, proposedSymbolName, proposedFilePath, intent, {
-        pathAliases: config.pathAliases,
-        config,
-        repoRoot
-      });
-      await db.close();
-
-      const placement = verifyPlacement({
-        proposedFilePath,
-        intent,
-        placementRules: config.placementRules
-      });
-
-      const { decision, mode, severity } = advisoryDecision({
-        enforcementMode: config.enforcementMode,
-        duplicateRisk: dup.duplicateRisk,
-        placementOk: placement.ok
-      });
-
       const response = {
-        decision,
-        mode,
-        severity,
-        domain: domainAdvisory,
-        duplicate: dup,
-        placement,
-        suggestedAction:
-          dup.match && dup.duplicateRisk !== "low"
-            ? {
-                message: `Use existing ${dup.match.symbol} from ${dup.match.file}`,
-                suggestedImport: dup.suggestedImport
-              }
-            : placement.ok
-              ? null
-              : {
-                  message: `Suggested location: ${placement.suggestedPath}`,
-                  suggestedPath: placement.suggestedPath
-                }
+        decision: advisory.decision,
+        mode: advisory.mode,
+        severity: advisory.severity,
+        domain: advisory.domain,
+        duplicate: advisory.duplicate,
+        placement: advisory.placement,
+        suggestedAction: advisory.suggestedAction
       };
-
       return {
-        content: [
-          {
-            type: "text",
-            text: [
-              decisionText,
-              domainAdvisoryText(domainAdvisory),
-              advisoryTextForAbstraction({
-                file: response.duplicate.match?.file,
-                symbol: response.duplicate.match?.symbol,
-                suggestedImport: response.duplicate.suggestedImport,
-                confidence: response.duplicate.duplicateRisk,
-                action:
-                  decision === "BLOCKED"
-                    ? "Do not create duplicate. Reuse existing function."
-                    : decision === "ADVISORY"
-                      ? "Prefer reuse and follow placement guidance."
-                      : "Proceed.",
-                reasons: response.duplicate.reasons,
-                explanation: response.duplicate.explanation
-              })
-            ].join("\n\n")
-          }
-        ],
+        content: [{ type: "text", text: advisory.text }],
         structuredContent: response
       };
     }
@@ -433,7 +206,7 @@ export async function startMcpServer(opts: { repoRoot: string }) {
     "List persistent architectural decisions (ADRs) and rationale for continuity across AI sessions.",
     {},
     async () => {
-      const memory = buildDecisionMemory(repoRoot);
+      const memory = buildDecisionMemory(runtime.repoRoot);
       return {
         content: [{ type: "text", text: formatDecisionList(memory.decisions) }],
         structuredContent: { decisions: memory.decisions }
@@ -446,12 +219,10 @@ export async function startMcpServer(opts: { repoRoot: string }) {
     "Check whether the codebase violates recorded architectural decisions.",
     {},
     async () => {
-      const ir = await buildArchitectureIr(repoRoot, config);
-      const memory = buildDecisionMemory(repoRoot);
-      const result = checkDecisionsAgainstRepo(ir, config, memory);
+      const adr = await runtime.adrCheck();
       return {
-        content: [{ type: "text", text: formatDecisionCheckOutput(result) }],
-        structuredContent: result
+        content: [{ type: "text", text: adr.text }],
+        structuredContent: adr.result
       };
     }
   );
@@ -465,16 +236,15 @@ export async function startMcpServer(opts: { repoRoot: string }) {
       domain: z.string().optional().describe("Business domain, e.g. payments or auth")
     },
     async ({ filePath, intent, domain }) => {
-      const memory = buildDecisionMemory(repoRoot);
-      const explanation = explainArchitecturalDecisions(memory, { filePath, intent, domain });
+      const explained = await runtime.explainDecisions({ filePath, intent, domain });
       return {
-        content: [{ type: "text", text: explanation }],
+        content: [{ type: "text", text: explained.text }],
         structuredContent: {
           filePath,
           intent,
           domain,
-          accepted: memory.decisions.filter((d) => d.status === "accepted"),
-          proposed: memory.decisions.filter((d) => d.status === "proposed")
+          accepted: explained.accepted,
+          proposed: explained.proposed
         }
       };
     }
@@ -492,7 +262,7 @@ export async function startMcpServer(opts: { repoRoot: string }) {
       domains: z.array(z.string()).optional()
     },
     async ({ title, decision, rationale, constraints, avoid, domains }) => {
-      const { path: adrPath, decision: recorded } = createArchitecturalDecision(repoRoot, {
+      const { path: adrPath, decision: recorded } = createArchitecturalDecision(runtime.repoRoot, {
         title,
         decision,
         rationale,
@@ -507,7 +277,6 @@ export async function startMcpServer(opts: { repoRoot: string }) {
     }
   );
 
-  // Backward-compatible aliases.
   server.tool(
     "find_duplicates",
     "Alias for find_existing_abstractions.",
@@ -518,29 +287,21 @@ export async function startMcpServer(opts: { repoRoot: string }) {
       limit: z.number().int().min(1).max(20).default(5)
     },
     async ({ proposedSymbolName, proposedFilePath, intent, limit }) => {
-      const db = await openDb(dbAbs);
-      const candidates = await findDuplicateCandidates(db, proposedSymbolName, limit, proposedFilePath, intent, {
-        pathAliases: config.pathAliases,
-        config,
-        repoRoot
+      const result = await runtime.findExistingAbstractions({
+        proposedSymbolName,
+        proposedFilePath,
+        intent,
+        limit
       });
-      await db.close();
-      const payload = { proposedSymbolName, proposedFilePath, intent, confidence: candidates[0]?.duplicateRisk ?? "low", candidates };
-      const best = candidates[0];
+      const payload = {
+        proposedSymbolName: result.proposedSymbolName,
+        proposedFilePath: result.proposedFilePath,
+        intent: result.intent,
+        confidence: result.confidence,
+        candidates: result.candidates
+      };
       return {
-        content: [
-          {
-            type: "text",
-            text: advisoryTextForAbstraction({
-              file: best?.file,
-              symbol: best?.symbol,
-              suggestedImport: best?.suggestedImport,
-              confidence: payload.confidence,
-              action: best ? "Prefer reuse/import over creating duplicate code." : "Proceed with implementation.",
-              reasons: best?.reasons
-            })
-          }
-        ],
+        content: [{ type: "text", text: result.text }],
         structuredContent: payload
       };
     }
@@ -553,24 +314,10 @@ export async function startMcpServer(opts: { repoRoot: string }) {
       symbolName: z.string()
     },
     async ({ symbolName }) => {
-      const db = await openDb(dbAbs);
-      const suggestion = await suggestImportForSymbol(db, symbolName, { pathAliases: config.pathAliases });
-      await db.close();
-      const payload = { symbolName, suggestion };
+      const result = await runtime.suggestImportReuse(symbolName);
       return {
-        content: [
-          {
-            type: "text",
-            text: advisoryTextForAbstraction({
-              file: suggestion.file ?? undefined,
-              symbol: suggestion.symbol,
-              suggestedImport: suggestion.suggestedImport ?? undefined,
-              confidence: suggestion.strategy === "exact" ? "high" : suggestion.strategy === "nearest" ? "medium" : "none",
-              action: suggestion.suggestedImport ? "Reuse the suggested import." : "No reuse suggestion found."
-            })
-          }
-        ],
-        structuredContent: payload
+        content: [{ type: "text", text: result.text }],
+        structuredContent: { symbolName: result.symbolName, suggestion: result.suggestion }
       };
     }
   );
@@ -578,4 +325,3 @@ export async function startMcpServer(opts: { repoRoot: string }) {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }
-

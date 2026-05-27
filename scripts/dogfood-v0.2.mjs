@@ -23,13 +23,8 @@ const targets = [
 ];
 
 const commands = [
-  ["scan", []],
-  ["report", []],
-  ["graph", []],
-  ["domains", []],
-  ["check", ["--ci"]],
-  ["adr", ["check", "--format=markdown"]],
-  ["snapshot", []]
+  ["validate", ["--full"]],
+  ["adr", ["check", "--format=markdown"]]
 ];
 
 function run(cwd, args) {

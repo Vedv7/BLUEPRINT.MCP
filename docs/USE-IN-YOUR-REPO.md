@@ -16,9 +16,10 @@ Requires **Node.js 20+** and **Python 3** on PATH (for Python adapter).
 
 ```bash
 npx blueprint init
-npx blueprint scan
-npx blueprint doctor
+npx blueprint validate
 ```
+
+`validate` runs `scan`, `doctor`, `check --ci`, `adr check --ci`, and `snapshot` in one pass. Use `npx blueprint validate --full` to also run `report`, `graph`, `domains`, and `domain-health`.
 
 ## Cursor / MCP
 
@@ -42,6 +43,8 @@ Copy `docs/agent-rule-blueprint.mdc` → `.cursor/rules/blueprint.mdc`.
 
 | Command | Purpose |
 |---------|---------|
+| `npx blueprint validate` | One-shot workflow: scan, doctor, check, adr check, snapshot |
+| `npx blueprint validate --full` | Above plus report, graph, domains, domain-health |
 | `npx blueprint scan` | Index symbols and imports |
 | `npx blueprint doctor` | Language coverage and health |
 | `npx blueprint report` | Architecture memory report |
